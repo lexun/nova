@@ -1,4 +1,4 @@
-use bevy::{input::mouse::MouseMotion, prelude::*};
+use bevy::{input::mouse::MouseMotion, prelude::*, window::CursorGrabMode};
 
 #[derive(Component)]
 struct CameraController {
@@ -19,7 +19,13 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut windows: Query<&mut Window>,
 ) {
+    // Setup cursor capture
+    if let Ok(mut window) = windows.single_mut() {
+        window.cursor_options.grab_mode = CursorGrabMode::Locked;
+        window.cursor_options.visible = false;
+    }
     // Camera
     commands.spawn((
         Camera3d::default(),
@@ -55,7 +61,6 @@ fn camera_movement(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut mouse_motion: EventReader<MouseMotion>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
     mut camera_query: Query<(&mut Transform, &CameraController), With<Camera3d>>,
 ) {
     for (mut transform, controller) in camera_query.iter_mut() {
@@ -87,15 +92,13 @@ fn camera_movement(
         velocity = velocity.normalize_or_zero();
         transform.translation += velocity * controller.move_speed * time.delta_secs();
 
-        // Mouse look (only when right mouse button is held)
-        if mouse_input.pressed(MouseButton::Right) {
-            for mouse_event in mouse_motion.read() {
-                let yaw = -mouse_event.delta.x * controller.sensitivity;
-                let pitch = -mouse_event.delta.y * controller.sensitivity;
+        // Mouse look (captured)
+        for mouse_event in mouse_motion.read() {
+            let yaw = -mouse_event.delta.x * controller.sensitivity;
+            let pitch = -mouse_event.delta.y * controller.sensitivity;
 
-                transform.rotate_y(yaw);
-                transform.rotate_local_x(pitch);
-            }
+            transform.rotate_y(yaw);
+            transform.rotate_local_x(pitch);
         }
     }
 }
