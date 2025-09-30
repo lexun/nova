@@ -37,10 +37,37 @@ nova/
 
 ## Getting Started
 
+### Install Nix
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | \
+  sh -s -- install --determinate
+```
+
+### Install Direnv
+
+```
+nix profile install nixpkgs#direnv
+```
+
+Then [add it to your shell](https://direnv.net/docs/hook.html) and restart your
+shell session.
+
+### Install Devenv
+
+```
+nix profile install nixpkgs#devenv
+```
+
+### Run the Project
+
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd world
+cd nova
+
+# Allow direnv to load the development environment
+direnv allow
 
 # Run the explorer game
 cargo run -p explorer
