@@ -1,6 +1,7 @@
 # Nova Engine
 
-A modular game engine for building galaxy-scale, voxel-based worlds with seamless space-to-surface transitions and multiplayer support.
+A modular game engine for building galaxy-scale, voxel-based worlds with
+seamless space-to-surface transitions and multiplayer support.
 
 ## Vision
 
@@ -17,15 +18,14 @@ The project is organized as a Rust workspace with modular, reusable components:
 
 ```
 nova/
-├── crates/                      # Individual engine components
-│   ├── voxel/                   # Voxel system (Enshrouded-style)
-│   ├── procgen/                 # Procedural generation (No Man's Sky-style)
-│   ├── networking/              # Multiplayer & server meshing (Star Citizen-style)
-│   ├── physics/                 # Physics integration
-│   ├── rendering/               # Rendering optimizations
-│   └── engine/                  # Integration layer that combines all components
-└── games/                       # Game projects
-    └── explorer/                # Main integration/testing game
+└── crates/                      # All engine components and examples
+    ├── voxel/                   # Voxel system (Enshrouded-style)
+    ├── procgen/                 # Procedural generation (No Man's Sky-style)
+    ├── networking/              # Multiplayer & server meshing (Star Citizen-style)
+    ├── physics/                 # Physics integration
+    ├── rendering/               # Rendering optimizations
+    ├── engine/                  # Integration layer that combines all components
+    └── example/                 # Example/testing application
 ```
 
 ### Design Principles
@@ -63,16 +63,19 @@ nix profile install nixpkgs#devenv
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone git@github.com:lexun/nova.git
 cd nova
 
 # Allow direnv to load the development environment
 direnv allow
 
-# Run the explorer game
-cargo run -p explorer
+# Run the example application
+cargo run -p example
 ```
 
 ## Development
 
-This is an experimental project exploring cutting-edge game development techniques for galaxy-scale voxel worlds. Each engine component can be developed and tested independently, with the `explorer` game serving as an integration testbed.
+This is an experimental project exploring cutting-edge game development
+techniques for galaxy-scale voxel worlds. Each engine component can be developed
+and tested independently, with the `example` application serving as an
+integration testbed.

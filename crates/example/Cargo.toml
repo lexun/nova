@@ -1,0 +1,8 @@
+[package]
+name = "example"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+engine = { version = "0.1.0", path = "../engine" }

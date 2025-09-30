@@ -1,6 +1,9 @@
+# Cargo
+/target
+
 # Devenv
 .devenv*
 devenv.local.nix
 
-# direnv
+# Direnv
 .direnv
