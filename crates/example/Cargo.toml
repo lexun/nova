@@ -6,4 +6,5 @@ authors.workspace = true
 
 [dependencies]
 engine = { version = "0.1.0", path = "../engine" }
+voxel = { version = "0.1.0", path = "../voxel" }
 bevy = "0.16.1"

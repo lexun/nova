@@ -1,4 +1,10 @@
-use bevy::{input::mouse::MouseMotion, prelude::*, window::CursorGrabMode};
+use bevy::{
+    input::mouse::MouseMotion,
+    pbr::wireframe::{Wireframe, WireframePlugin},
+    prelude::*,
+    window::CursorGrabMode,
+};
+use voxel::{Chunk, Voxel, VoxelType};
 
 #[derive(Component)]
 struct CameraController {
@@ -33,17 +39,17 @@ fn setup_scene(
         CameraController::default(),
     ));
 
-    // Cube to look at
+    // Human scale reference (1.8m tall person)
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.8, 0.2, 0.2))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Mesh3d(meshes.add(Capsule3d::new(0.3, 1.8))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.3, 0.8))),
+        Transform::from_xyz(0.0, 0.9, 0.0), // Position so bottom touches ground
     ));
 
-    // Ground plane
+    // Ground plane (neutral concrete color)
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.7, 0.7, 0.7))),
         Transform::from_xyz(0.0, 0.0, 0.0),
     ));
 
@@ -55,6 +61,98 @@ fn setup_scene(
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.7, 0.4, 0.0)),
     ));
+
+    // Create a test chunk with some voxels
+    let mut chunk = Chunk::new();
+
+    // Add some test voxels - a small tower
+    for y in 0..5 {
+        chunk.set_voxel(
+            10,
+            y,
+            10,
+            Voxel {
+                voxel_type: VoxelType::Stone,
+                density: 255,
+            },
+        );
+    }
+
+    // Add dirt foundation first
+    for x in 8..13 {
+        for z in 8..13 {
+            if x != 10 || z != 10 {
+                // Don't place under the stone tower
+                chunk.set_voxel(
+                    x,
+                    0,
+                    z,
+                    Voxel {
+                        voxel_type: VoxelType::Dirt,
+                        density: 255,
+                    },
+                );
+            }
+        }
+    }
+
+    // Add grass layer on top of dirt
+    for x in 8..13 {
+        for z in 8..13 {
+            if x != 10 || z != 10 {
+                // Don't place under the stone tower
+                chunk.set_voxel(
+                    x,
+                    1,
+                    z,
+                    Voxel {
+                        voxel_type: VoxelType::Grass,
+                        density: 255,
+                    },
+                );
+            }
+        }
+    }
+
+    // Visualize the chunk with debug cubes
+    let voxel_size = 0.25; // 25cm voxels (good for building scale)
+    let chunk_offset = Vec3::new(-4.0, 0.125, -4.0); // Offset so voxel bottoms sit on bedrock
+
+    for x in 0..32 {
+        for y in 0..32 {
+            for z in 0..32 {
+                if let Some(voxel) = chunk.get_voxel(x, y, z) {
+                    if voxel.voxel_type != VoxelType::Air && voxel.density > 0 {
+                        let position = chunk_offset
+                            + Vec3::new(
+                                x as f32 * voxel_size,
+                                y as f32 * voxel_size,
+                                z as f32 * voxel_size,
+                            );
+
+                        let color = match voxel.voxel_type {
+                            VoxelType::Stone => Color::srgb(0.6, 0.6, 0.6),
+                            VoxelType::Dirt => Color::srgb(0.4, 0.2, 0.1),
+                            VoxelType::Grass => Color::srgb(0.2, 0.8, 0.2),
+                            VoxelType::Air => continue,
+                        };
+
+                        commands.spawn((
+                            Mesh3d(meshes.add(Cuboid::new(voxel_size, voxel_size, voxel_size))),
+                            MeshMaterial3d(materials.add(color)),
+                            Transform::from_translation(position),
+                            Wireframe,
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    info!("Created test chunk with voxels");
+    info!("Stone tower at (10, 0-4, 10)");
+    info!("Grass base around (8-12, 0, 8-12)");
+    info!("Dirt foundation at (8-12, 1-2, 8-12)");
 }
 
 fn camera_movement(
@@ -105,6 +203,7 @@ fn camera_movement(
 
 fn main() {
     let mut app = engine::create_app();
+    app.add_plugins(WireframePlugin::default());
     app.add_systems(Startup, setup_scene);
     app.add_systems(Update, camera_movement);
     app.run();
