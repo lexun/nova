@@ -115,6 +115,28 @@ history/
 - ✅ Preserves planning history for archeological research
 - ✅ Reduces noise when browsing the project
 
+### Git Commit Messages
+
+Follow these guidelines for all commit messages:
+
+**Format:**
+- **Title only** - No body, no additional content
+- **Imperative mood** - "Add feature" not "Added feature" or "Adds feature"
+- **Capitalize first letter** - "Fix bug" not "fix bug"
+- **No period at end** - "Update docs" not "Update docs."
+- **Under 50 characters** - Keep it concise and scannable
+
+**Examples:**
+- ✅ `Add user authentication`
+- ✅ `Fix memory leak in worker pool`
+- ✅ `Update dependencies to latest versions`
+- ❌ `added user authentication` (not imperative, not capitalized)
+- ❌ `Fixes the memory leak in the worker pool that was causing issues` (too long)
+- ❌ `Update docs.` (has period)
+
+**Rationale:**
+Short, imperative commits create a clean, scannable git history. Each commit should represent a single logical change that can be described in one concise line.
+
 ### Important Rules
 
 - ✅ Use bd for ALL task tracking
@@ -122,6 +144,7 @@ history/
 - ✅ Link discovered work with `discovered-from` dependencies
 - ✅ Check `bd ready` before asking "what should I work on?"
 - ✅ Store AI planning docs in `history/` directory
+- ✅ Follow git commit message guidelines (imperative, <50 chars)
 - ❌ Do NOT create markdown TODO lists
 - ❌ Do NOT use external issue trackers
 - ❌ Do NOT duplicate tracking systems
