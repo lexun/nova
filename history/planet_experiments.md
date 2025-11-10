@@ -114,3 +114,45 @@ We need proper chunk-based rendering, not individual voxel entities. The current
 **Screenshots:**
 - `/tmp/planet_dense.png` - Solid sphere from distance
 - `/tmp/planet_closer.png` - Close-up showing individual voxels and terrain colors
+
+---
+
+### Experiment 3: Performance Reality Check
+**Date:** 2025-11-09
+**Status:** Complete (Failure teaches us what we need)
+
+**Goal:** See if removing wireframe helps performance
+
+**Changes:**
+- Removed wireframe rendering
+- Tested performance with 98K entities
+
+**Results:**
+
+❌ **Failed as expected** - But learned crucial lessons!
+
+**What happened:**
+- Removing wireframe made it worse visually (voxels now just tiny dots)
+- Performance still terrible (~10 FPS) with 98K entities
+- Gaps still huge: sampling every ~4m but voxels are 0.25m
+- To eliminate gaps: need 500m ÷ 0.25m = 2000 samples per face edge
+- That would be 2000² × 6 faces = 24 million entities = impossible
+
+**The math that kills this approach:**
+```
+Planet surface area = 4πr² = 3.14 million m²
+Voxel cross-section = 0.25m × 0.25m = 0.0625 m²
+Surface voxels needed = 3.14M ÷ 0.0625 = ~50 million voxels
+```
+
+**Critical insight:**
+We've hit the architectural ceiling. Individual entities simply cannot scale to planetary voxel terrain. This is not an optimization problem - it's a fundamental design limitation.
+
+**What we MUST do next:**
+Implement proper chunk-based rendering with mesh generation:
+- Group voxels into chunks (e.g., 32³)
+- Generate single mesh per chunk using marching cubes or greedy meshing
+- One entity per chunk instead of one entity per voxel
+- Reduces 32³ voxels (32,768) into 1 entity = 32,768x reduction
+
+**Screenshot:** `/tmp/planet_no_wireframe.png` - Shows sparse dots, not solid surface

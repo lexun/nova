@@ -1,6 +1,5 @@
 use bevy::{
     input::mouse::MouseMotion,
-    pbr::wireframe::{Wireframe, WireframePlugin},
     prelude::*,
     window::CursorGrabMode,
 };
@@ -135,7 +134,6 @@ fn setup_scene(
                     Mesh3d(cube_mesh.clone()),
                     MeshMaterial3d(material),
                     Transform::from_translation(surface_pos),
-                    Wireframe,
                 ));
             }
         }
@@ -196,7 +194,6 @@ fn main() {
     let mut app = engine::create_app();
 
     // Plugins
-    app.add_plugins(WireframePlugin::default());
     app.add_plugins(BrpExtrasPlugin);
 
     app.add_systems(Startup, setup_scene);
