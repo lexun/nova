@@ -129,7 +129,10 @@ fn setup_scene(
                 let v_center = v_start + (1.0 / CHUNKS_PER_FACE_EDGE as f32);
 
                 let chunk_direction = cube_to_sphere(face, u_center, v_center);
-                let chunk_position = chunk_direction * PLANET_RADIUS;
+                // Position chunk below surface to capture terrain volume
+                // Chunk extends from (radius - 8m) to radius in the +Y direction
+                let chunk_depth_offset = (CHUNK_SIZE as f32 * VOXEL_SIZE) / 2.0; // 4m
+                let chunk_position = chunk_direction * (PLANET_RADIUS - chunk_depth_offset);
 
                 // Calculate rotation to orient chunk with sphere surface
                 // Rotate so chunk's local Y-axis points radially outward
@@ -159,6 +162,7 @@ fn setup_scene(
 /// Generate a chunk of voxels for a specific position on the planet
 fn generate_planet_chunk(face: usize, chunk_u: usize, chunk_v: usize) -> Chunk {
     let mut chunk = Chunk::new();
+    let mut voxel_count = 0;
 
     // Calculate the UV range and center for this chunk on the cube face
     let u_start = (chunk_u as f32 / CHUNKS_PER_FACE_EDGE as f32) * 2.0 - 1.0;
@@ -210,11 +214,13 @@ fn generate_planet_chunk(face: usize, chunk_u: usize, chunk_v: usize) -> Chunk {
                         voxel_type,
                         density: 255,
                     });
+                    voxel_count += 1;
                 }
             }
         }
     }
 
+    info!("Chunk face={} u={} v={}: {} voxels generated", face, chunk_u, chunk_v, voxel_count);
     chunk
 }
 
