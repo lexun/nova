@@ -92,7 +92,7 @@ fn setup_scene(
     // For now, we'll generate a sparse set of voxels to visualize the planet shape
     // In a real implementation, we'd use proper chunk management
 
-    let samples_per_face = 32; // How many samples per cube face dimension
+    let samples_per_face = 128; // How many samples per cube face dimension
     let total_voxels = samples_per_face * samples_per_face * 6; // 6 faces
 
     info!("Generating {} surface samples", total_voxels);

@@ -74,3 +74,43 @@ We need proper chunk-based rendering, not individual voxel entities. The current
 5. Add collision detection for walking on surface
 
 **Screenshot:** `/tmp/planet_initial.png` - Shows sparse "starfield" pattern of voxels forming sphere
+
+---
+
+### Experiment 2: Increase Sampling Density
+**Date:** 2025-11-09
+**Status:** Complete
+
+**Goal:** Make the planet surface appear solid by increasing voxel density
+
+**Changes:**
+- Increased samples from 32×32 to 128×128 per cube face
+- Total voxels: 6,144 → 98,304 (16x increase)
+
+**Results:**
+
+✅ **Much better!** Planet now appears as a solid sphere.
+
+**What worked:**
+- Sphere is now clearly visible and solid-looking from distance
+- Terrain colors (grass/stone/dirt) are visible
+- Individual voxels distinguishable when close
+- Cubic face boundaries create interesting grid patterns
+- Performance still good with ~100K entities
+
+**What we learned:**
+- 128×128 per face is sufficient for visualization
+- Cubic grid structure is visible but not problematic
+- Height-based coloring works well (>10m = stone, 0-10m = grass, <0m = dirt)
+- Wireframe mode helps see individual voxels
+- Still spawning individual entities - this is our performance ceiling
+
+**Next challenges:**
+- Can't actually "land" on or walk on the surface yet
+- No collision detection
+- Camera doesn't orient to planet gravity
+- Need proper chunk-based meshing for real scale
+
+**Screenshots:**
+- `/tmp/planet_dense.png` - Solid sphere from distance
+- `/tmp/planet_closer.png` - Close-up showing individual voxels and terrain colors
