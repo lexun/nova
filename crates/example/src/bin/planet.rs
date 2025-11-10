@@ -8,7 +8,7 @@ use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
 
 const VOXEL_SIZE: f32 = 0.25; // 25cm voxels
 const PLANET_RADIUS: f32 = 500.0; // 500m radius = 1km diameter
-const CHUNKS_PER_FACE_EDGE: usize = 8; // 8x8 chunks per cube face
+const CHUNKS_PER_FACE_EDGE: usize = 64; // 64x64 chunks per cube face for continuous coverage
 
 #[derive(Component)]
 struct CameraController {
@@ -129,10 +129,10 @@ fn setup_scene(
                 let v_center = v_start + (1.0 / CHUNKS_PER_FACE_EDGE as f32);
 
                 let chunk_direction = cube_to_sphere(face, u_center, v_center);
-                // Position chunk below surface to capture terrain volume
-                // Chunk extends from (radius - 8m) to radius in the +Y direction
-                let chunk_depth_offset = (CHUNK_SIZE as f32 * VOXEL_SIZE) / 2.0; // 4m
-                let chunk_position = chunk_direction * (PLANET_RADIUS - chunk_depth_offset);
+                // Position chunk so it straddles the average terrain surface
+                // Chunks extend ±4m from center, so position at 496m to capture 492m-500m range
+                let chunk_thickness = CHUNK_SIZE as f32 * VOXEL_SIZE; // 8m
+                let chunk_position = chunk_direction * (PLANET_RADIUS - chunk_thickness / 2.0);
 
                 // Calculate rotation to orient chunk with sphere surface
                 // Rotate so chunk's local Y-axis points radially outward
@@ -175,47 +175,15 @@ fn generate_planet_chunk(face: usize, chunk_u: usize, chunk_v: usize) -> Chunk {
     let chunk_position = chunk_direction * PLANET_RADIUS;
     let chunk_rotation = Quat::from_rotation_arc(Vec3::Y, chunk_direction);
 
-    // Fill chunk with voxels
+    // Fill chunk with voxels - for now, fill ALL voxels to test continuous sphere
     for x in 0..CHUNK_SIZE {
         for y in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
-                // Calculate voxel's local position within chunk
-                let local_x = (x as f32 - CHUNK_SIZE as f32 / 2.0) * VOXEL_SIZE;
-                let local_y = (y as f32 - CHUNK_SIZE as f32 / 2.0) * VOXEL_SIZE;
-                let local_z = (z as f32 - CHUNK_SIZE as f32 / 2.0) * VOXEL_SIZE;
-                let local_pos = Vec3::new(local_x, local_y, local_z);
-
-                // Transform to world space
-                let world_pos = chunk_position + chunk_rotation * local_pos;
-
-                // Calculate radial distance from planet center
-                let radial_distance = world_pos.length();
-
-                // Get terrain surface radius at this direction
-                let world_direction = world_pos.normalize();
-                let surface_pos = world_direction * PLANET_RADIUS;
-                let terrain_height = terrain_noise(surface_pos);
-                let surface_radius = PLANET_RADIUS + terrain_height;
-
-                // Voxel is solid if it's underground (closer to center than surface)
-                if radial_distance < surface_radius {
-                    // Depth below surface determines material type
-                    let depth_below_surface = surface_radius - radial_distance;
-
-                    let voxel_type = if terrain_height > 10.0 {
-                        VoxelType::Stone
-                    } else if depth_below_surface > 0.5 {
-                        VoxelType::Dirt
-                    } else {
-                        VoxelType::Grass
-                    };
-
-                    chunk.set_voxel(x, y, z, Voxel {
-                        voxel_type,
-                        density: 255,
-                    });
-                    voxel_count += 1;
-                }
+                chunk.set_voxel(x, y, z, Voxel {
+                    voxel_type: VoxelType::Grass,
+                    density: 255,
+                });
+                voxel_count += 1;
             }
         }
     }
