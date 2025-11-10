@@ -7,3 +7,6 @@ devenv.local.nix
 
 # Direnv
 .direnv
+
+# Vibetree
+.vibetree
