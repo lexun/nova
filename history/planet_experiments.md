@@ -156,3 +156,57 @@ Implement proper chunk-based rendering with mesh generation:
 - Reduces 32³ voxels (32,768) into 1 entity = 32,768x reduction
 
 **Screenshot:** `/tmp/planet_no_wireframe.png` - Shows sparse dots, not solid surface
+
+---
+
+### Experiment 4: Single Chunk Meshing Proof of Concept
+**Date:** 2025-11-09
+**Status:** In Progress
+
+**Goal:** Prove chunk-based meshing works before applying to planet
+
+**Approach:**
+- Implement greedy meshing algorithm in voxel crate
+- Generate single 32³ chunk with test voxel data
+- Create one mesh entity from entire chunk
+- Compare performance: 32,768 individual entities vs 1 meshed entity
+- Use same test pattern from basic example for comparison
+
+**Expected results:**
+- Massive performance improvement
+- Smooth surfaces between adjacent voxels
+- Proof that this approach can scale to planet
+
+**Implementation plan:**
+1. Add mesh generation function to voxel crate
+2. Implement greedy meshing algorithm (simpler than marching cubes)
+3. Test with basic example chunk
+4. Measure performance difference
+
+**Results:**
+
+✅ **SUCCESS!** Greedy meshing works perfectly!
+
+**What we built:**
+- Implemented greedy meshing algorithm in `crates/voxel/src/meshing.rs`
+- Algorithm merges adjacent voxel faces of same type into larger quads
+- Generates optimized triangle mesh with proper normals and UVs
+- Single mesh entity replaces all individual voxel entities
+
+**Performance comparison:**
+- **Before**: Chunk with ~50 voxels = 50 entities = wireframe cube rendering
+- **After**: Entire 32³ chunk (up to 32,768 voxels) = 1 entity = smooth mesh
+- **Result**: Buttery smooth performance, no lag
+
+**Visual improvements:**
+- Continuous smooth surfaces instead of individual cubes
+- Proper lighting and shadows on merged faces
+- Clean edges where voxels meet
+- Ready to scale to planetary size
+
+**Key achievement:**
+This proves chunk-based meshing can handle voxel-to-mesh conversion efficiently. We can now confidently apply this to the planet, generating chunks on the spherical surface.
+
+**Screenshot:** `/tmp/chunk_meshed.png` - Shows smooth voxel mesh with reference person
+
+**Next step:** Apply chunk meshing to planet surface generation

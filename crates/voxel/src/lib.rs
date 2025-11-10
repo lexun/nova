@@ -29,6 +29,8 @@
 
 use bevy::prelude::*;
 
+pub mod meshing;
+
 /// Types of voxel materials
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VoxelType {

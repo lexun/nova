@@ -1,6 +1,5 @@
 use bevy::{
     input::mouse::MouseMotion,
-    pbr::wireframe::{Wireframe, WireframePlugin},
     prelude::*,
     window::CursorGrabMode,
 };
@@ -115,42 +114,25 @@ fn setup_scene(
         }
     }
 
-    // Visualize the chunk with debug cubes
+    // Generate mesh from chunk using greedy meshing
     let voxel_size = 0.25; // 25cm voxels (good for building scale)
     let chunk_offset = Vec3::new(-4.0, 0.125, -4.0); // Offset so voxel bottoms sit on bedrock
 
-    for x in 0..32 {
-        for y in 0..32 {
-            for z in 0..32 {
-                if let Some(voxel) = chunk.get_voxel(x, y, z) {
-                    if voxel.voxel_type != VoxelType::Air && voxel.density > 0 {
-                        let position = chunk_offset
-                            + Vec3::new(
-                                x as f32 * voxel_size,
-                                y as f32 * voxel_size,
-                                z as f32 * voxel_size,
-                            );
+    let chunk_mesh = voxel::meshing::generate_chunk_mesh(&chunk, voxel_size);
 
-                        let color = match voxel.voxel_type {
-                            VoxelType::Stone => Color::srgb(0.6, 0.6, 0.6),
-                            VoxelType::Dirt => Color::srgb(0.4, 0.2, 0.1),
-                            VoxelType::Grass => Color::srgb(0.2, 0.8, 0.2),
-                            VoxelType::Air => continue,
-                        };
+    // Spawn single entity for entire chunk
+    commands.spawn((
+        Mesh3d(meshes.add(chunk_mesh)),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0.5, 0.5, 0.5),
+            perceptual_roughness: 0.8,
+            ..default()
+        })),
+        Transform::from_translation(chunk_offset),
+    ));
 
-                        commands.spawn((
-                            Mesh3d(meshes.add(Cuboid::new(voxel_size, voxel_size, voxel_size))),
-                            MeshMaterial3d(materials.add(color)),
-                            Transform::from_translation(position),
-                            Wireframe,
-                        ));
-                    }
-                }
-            }
-        }
-    }
-
-    info!("Created test chunk with voxels");
+    info!("Created test chunk with greedy meshing");
+    info!("Single mesh entity instead of individual voxels");
     info!("Stone tower at (10, 0-4, 10)");
     info!("Grass base around (8-12, 0, 8-12)");
     info!("Dirt foundation at (8-12, 1-2, 8-12)");
@@ -204,9 +186,6 @@ fn camera_movement(
 
 fn main() {
     let mut app = engine::create_app();
-
-    // Rendering
-    app.add_plugins(WireframePlugin::default());
 
     // MCP Server Integration - Enable autonomous AI development and testing
     // BrpExtrasPlugin includes RemoteHttpPlugin + extras (screenshots, keyboard input, window control)
