@@ -98,6 +98,7 @@ AI assistants often create planning and design documents during development:
 **Recommended approach:**
 - Create a `history/` directory in the project root
 - Store ALL AI-generated planning/design docs in `history/`
+- Use lowercase with underscores for document names (e.g., `planet_experiments.md`, not `PLANET_EXPERIMENTS.md`)
 - Keep the repository root clean and focused on permanent project files
 - Only access `history/` when explicitly asked to review past planning
 

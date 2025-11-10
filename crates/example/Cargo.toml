@@ -4,6 +4,14 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 
+[[bin]]
+name = "basic"
+path = "src/main.rs"
+
+[[bin]]
+name = "planet"
+path = "src/bin/planet.rs"
+
 [dependencies]
 engine = { version = "0.1.0", path = "../engine" }
 voxel = { version = "0.1.0", path = "../voxel" }
