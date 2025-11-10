@@ -133,6 +133,10 @@ Follow these guidelines for all commit messages:
 - ❌ `added user authentication` (not imperative, not capitalized)
 - ❌ `Fixes the memory leak in the worker pool that was causing issues` (too long)
 - ❌ `Update docs.` (has period)
+- ❌ Any commit with body text or multiple lines
+
+**Critical**: Use `git commit -m "Title"` NOT `git commit -m "$(cat <<EOF ...)"` with heredoc.
+The title is the ONLY content. No attribution, no body, no Co-Authored-By, no emojis.
 
 **Rationale:**
 Short, imperative commits create a clean, scannable git history. Each commit should represent a single logical change that can be described in one concise line.
