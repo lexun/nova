@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "bevy_brp": {
+      "command": "bevy_brp_mcp",
+      "args": [],
+      "description": "Bevy Remote Protocol - develop and test Bevy games with real-time entity/component manipulation, screenshots, and keyboard input"
+    },
+    "bevy_debugger": {
+      "command": "bevy-debugger-mcp",
+      "args": [],
+      "description": "Scientific debugging and automated QA for Bevy - hypothesis testing, anomaly detection, and performance profiling"
+    }
+  }
+}

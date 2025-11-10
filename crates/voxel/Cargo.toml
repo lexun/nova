@@ -5,4 +5,4 @@ edition.workspace = true
 authors.workspace = true
 
 [dependencies]
-bevy = "0.16.1"
+bevy = "0.17.2"

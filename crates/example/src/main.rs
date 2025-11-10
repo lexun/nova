@@ -4,6 +4,7 @@ use bevy::{
     prelude::*,
     window::CursorGrabMode,
 };
+use bevy_brp_extras::BrpExtrasPlugin;
 use voxel::{Chunk, Voxel, VoxelType};
 
 #[derive(Component)]
@@ -25,12 +26,12 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut windows: Query<&mut Window>,
+    mut cursor_options: Query<&mut bevy::window::CursorOptions>,
 ) {
     // Setup cursor capture
-    if let Ok(mut window) = windows.single_mut() {
-        window.cursor_options.grab_mode = CursorGrabMode::Locked;
-        window.cursor_options.visible = false;
+    if let Ok(mut cursor) = cursor_options.single_mut() {
+        cursor.grab_mode = CursorGrabMode::Locked;
+        cursor.visible = false;
     }
     // Camera
     commands.spawn((
@@ -158,7 +159,7 @@ fn setup_scene(
 fn camera_movement(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_motion: EventReader<MouseMotion>,
+    mut mouse_motion: MessageReader<MouseMotion>,
     mut camera_query: Query<(&mut Transform, &CameraController), With<Camera3d>>,
 ) {
     for (mut transform, controller) in camera_query.iter_mut() {
@@ -203,7 +204,15 @@ fn camera_movement(
 
 fn main() {
     let mut app = engine::create_app();
+
+    // Rendering
     app.add_plugins(WireframePlugin::default());
+
+    // MCP Server Integration - Enable autonomous AI development and testing
+    // BrpExtrasPlugin includes RemoteHttpPlugin + extras (screenshots, keyboard input, window control)
+    app.add_plugins(BrpExtrasPlugin);  // Bevy Remote Protocol (port 15702)
+    // Note: bevy_debugger_mcp is an external MCP server (doesn't require a Bevy plugin)
+
     app.add_systems(Startup, setup_scene);
     app.add_systems(Update, camera_movement);
     app.run();
