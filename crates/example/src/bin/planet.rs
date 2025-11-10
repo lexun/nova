@@ -4,10 +4,11 @@ use bevy::{
     window::CursorGrabMode,
 };
 use bevy_brp_extras::BrpExtrasPlugin;
-use voxel::VoxelType;
+use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
 
 const VOXEL_SIZE: f32 = 0.25; // 25cm voxels
 const PLANET_RADIUS: f32 = 500.0; // 500m radius = 1km diameter
+const CHUNKS_PER_FACE_EDGE: usize = 8; // 8x8 chunks per cube face
 
 #[derive(Component)]
 struct CameraController {
@@ -79,69 +80,127 @@ fn setup_scene(
     commands.spawn((
         DirectionalLight {
             illuminance: 10000.0,
-            shadows_enabled: false, // Disable shadows for now (performance)
+            shadows_enabled: false,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.7, 0.4, 0.0)),
     ));
 
-    info!("Generating planet surface...");
+    info!("Generating planet surface with chunks...");
 
-    // Generate planet surface voxels
-    // For now, we'll generate a sparse set of voxels to visualize the planet shape
-    // In a real implementation, we'd use proper chunk management
+    let total_chunks = CHUNKS_PER_FACE_EDGE * CHUNKS_PER_FACE_EDGE * 6;
+    info!("Generating {} chunks ({} per face edge)", total_chunks, CHUNKS_PER_FACE_EDGE);
 
-    let samples_per_face = 128; // How many samples per cube face dimension
-    let total_voxels = samples_per_face * samples_per_face * 6; // 6 faces
+    let chunk_world_size = CHUNK_SIZE as f32 * VOXEL_SIZE; // 8 meters per chunk
 
-    info!("Generating {} surface samples", total_voxels);
+    // Materials for different terrain types
+    let stone_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.6, 0.6, 0.6),
+        perceptual_roughness: 0.8,
+        ..default()
+    });
+    let dirt_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.4, 0.2, 0.1),
+        perceptual_roughness: 0.9,
+        ..default()
+    });
+    let grass_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.2, 0.8, 0.2),
+        perceptual_roughness: 0.85,
+        ..default()
+    });
 
-    let stone_material = materials.add(Color::srgb(0.6, 0.6, 0.6));
-    let dirt_material = materials.add(Color::srgb(0.4, 0.2, 0.1));
-    let grass_material = materials.add(Color::srgb(0.2, 0.8, 0.2));
+    let mut chunks_generated = 0;
 
-    let cube_mesh = meshes.add(Cuboid::new(VOXEL_SIZE, VOXEL_SIZE, VOXEL_SIZE));
-
-    // Generate voxels for each cube face
+    // Generate chunks for each cube face
     for face in 0..6 {
-        for i in 0..samples_per_face {
-            for j in 0..samples_per_face {
-                // Convert to normalized coordinates [-1, 1]
-                let u = (i as f32 / (samples_per_face - 1) as f32) * 2.0 - 1.0;
-                let v = (j as f32 / (samples_per_face - 1) as f32) * 2.0 - 1.0;
+        for chunk_u in 0..CHUNKS_PER_FACE_EDGE {
+            for chunk_v in 0..CHUNKS_PER_FACE_EDGE {
+                // Generate chunk at this grid position
+                let chunk = generate_planet_chunk(face, chunk_u, chunk_v);
 
-                // Get sphere direction
-                let direction = cube_to_sphere(face, u, v);
+                // Generate mesh from chunk
+                let mesh = voxel::meshing::generate_chunk_mesh(&chunk, VOXEL_SIZE);
 
-                // Base surface position
-                let base_pos = direction * PLANET_RADIUS;
+                // Calculate chunk center position on sphere
+                let u_start = (chunk_u as f32 / CHUNKS_PER_FACE_EDGE as f32) * 2.0 - 1.0;
+                let v_start = (chunk_v as f32 / CHUNKS_PER_FACE_EDGE as f32) * 2.0 - 1.0;
+                let u_center = u_start + (1.0 / CHUNKS_PER_FACE_EDGE as f32);
+                let v_center = v_start + (1.0 / CHUNKS_PER_FACE_EDGE as f32);
 
-                // Add terrain variation
-                let height = terrain_noise(base_pos);
-                let surface_pos = direction * (PLANET_RADIUS + height);
+                let chunk_direction = cube_to_sphere(face, u_center, v_center);
+                let chunk_position = chunk_direction * PLANET_RADIUS;
 
-                // Determine voxel type based on height
-                let (_voxel_type, material) = if height > 10.0 {
-                    (VoxelType::Stone, stone_material.clone())
-                } else if height > 0.0 {
-                    (VoxelType::Grass, grass_material.clone())
-                } else {
-                    (VoxelType::Dirt, dirt_material.clone())
-                };
+                // Choose material based on average height (simplified)
+                let material = grass_material.clone();
 
-                // Spawn voxel
+                // Spawn chunk mesh
                 commands.spawn((
-                    Mesh3d(cube_mesh.clone()),
+                    Mesh3d(meshes.add(mesh)),
                     MeshMaterial3d(material),
-                    Transform::from_translation(surface_pos),
+                    Transform::from_translation(chunk_position),
                 ));
+
+                chunks_generated += 1;
             }
         }
     }
 
     info!("Planet generation complete!");
+    info!("Generated {} chunks", chunks_generated);
     info!("Planet radius: {}m", PLANET_RADIUS);
-    info!("Voxel size: {}m", VOXEL_SIZE);
+    info!("Chunk size: {}m", chunk_world_size);
+}
+
+/// Generate a chunk of voxels for a specific position on the planet
+fn generate_planet_chunk(face: usize, chunk_u: usize, chunk_v: usize) -> Chunk {
+    let mut chunk = Chunk::new();
+
+    // Calculate the UV range for this chunk on the cube face
+    let u_start = (chunk_u as f32 / CHUNKS_PER_FACE_EDGE as f32) * 2.0 - 1.0;
+    let v_start = (chunk_v as f32 / CHUNKS_PER_FACE_EDGE as f32) * 2.0 - 1.0;
+    let u_size = 2.0 / CHUNKS_PER_FACE_EDGE as f32;
+    let v_size = 2.0 / CHUNKS_PER_FACE_EDGE as f32;
+
+    // Fill chunk with voxels
+    for x in 0..CHUNK_SIZE {
+        for y in 0..CHUNK_SIZE {
+            for z in 0..CHUNK_SIZE {
+                // Map voxel position to position on cube face
+                let local_u = u_start + (x as f32 / CHUNK_SIZE as f32) * u_size;
+                let local_v = v_start + (z as f32 / CHUNK_SIZE as f32) * v_size;
+
+                // Get direction on sphere
+                let direction = cube_to_sphere(face, local_u, local_v);
+                let base_pos = direction * PLANET_RADIUS;
+
+                // Get terrain height at this position
+                let terrain_height = terrain_noise(base_pos);
+
+                // Calculate voxel's radial distance from planet center
+                // y=0 is at surface level, negative is underground, positive is above
+                let voxel_height = (y as f32 - 16.0) * VOXEL_SIZE; // Center chunk at surface
+
+                // Determine if voxel should be solid
+                if voxel_height < terrain_height {
+                    let voxel_type = if terrain_height > 10.0 {
+                        VoxelType::Stone
+                    } else if voxel_height < terrain_height - 2.0 {
+                        VoxelType::Dirt
+                    } else {
+                        VoxelType::Grass
+                    };
+
+                    chunk.set_voxel(x, y, z, Voxel {
+                        voxel_type,
+                        density: 255,
+                    });
+                }
+            }
+        }
+    }
+
+    chunk
 }
 
 fn camera_movement(
