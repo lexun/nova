@@ -9,8 +9,8 @@ name = "basic"
 path = "src/main.rs"
 
 [[bin]]
-name = "planet"
-path = "src/bin/planet.rs"
+name = "planet_chunk_sphere"
+path = "src/bin/planet_chunk_sphere.rs"
 
 [dependencies]
 engine = { version = "0.1.0", path = "../engine" }

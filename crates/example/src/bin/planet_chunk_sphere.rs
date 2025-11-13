@@ -1,3 +1,28 @@
+//! # Planet Rendering Experiment: Chunk-Based Sphere
+//!
+//! ## Approach
+//! - Generate planet surface using cubic sphere mapping (6 cube faces projected onto sphere)
+//! - Divide each face into NxN grid of chunks (currently 32x32 = 1,024 per face, 6,144 total)
+//! - Each chunk: 32³ voxels, greedy meshing for optimization
+//! - All chunks generated at startup before window opens
+//!
+//! ## Issues Discovered
+//! - Long generation time (~10-15s for 6,144 chunks)
+//! - Visible gaps between chunks even at high density
+//! - Chunks don't tile perfectly on curved surface
+//! - Terrain limited to 8m vertical range (chunk thickness)
+//! - Startup blocking prevents interactive loading
+//!
+//! ## Trade-offs
+//! - ✅ Simple conceptual model
+//! - ✅ Works with existing voxel/chunk infrastructure
+//! - ✅ Greedy meshing reduces triangle count
+//! - ❌ Poor scalability (generation time grows quadratically)
+//! - ❌ Gaps visible at any reasonable chunk density
+//! - ❌ No LOD support
+//!
+//! See nova-v6e for alternative approaches being considered.
+
 use bevy::{
     input::mouse::MouseMotion,
     prelude::*,
