@@ -16,6 +16,10 @@ path = "src/bin/planet_chunk_sphere.rs"
 name = "test_chunk_gaps"
 path = "src/bin/test_chunk_gaps.rs"
 
+[[bin]]
+name = "test_complex_chunks"
+path = "src/bin/test_complex_chunks.rs"
+
 [dependencies]
 engine = { version = "0.1.0", path = "../engine" }
 voxel = { version = "0.1.0", path = "../voxel" }
