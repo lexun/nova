@@ -1,12 +1,13 @@
-//! # Test: Multi-Scale Terrain Comparison
+//! # Test: Multi-Scale LOD Terrain Comparison
 //!
-//! Validates that terrain looks recognizable at different voxel sizes.
-//! Generates the SAME terrain area at three resolutions side-by-side:
-//! - High res (0.25m voxels)
-//! - Medium res (1.0m voxels)
-//! - Low res (4.0m voxels)
+//! Demonstrates realistic LOD behavior by rendering the SAME 32m × 32m world area
+//! at three different detail levels with appropriate chunk counts:
 //!
-//! This proves we can use dynamic voxel_size for LOD without losing visual consistency.
+//! - Low Detail (far): 1 chunk with 4m voxels (partial coverage of 128m chunk)
+//! - Medium Detail: 2×2 = 4 chunks with 1m voxels
+//! - High Detail (close): 4×4 = 16 chunks with 0.25m voxels
+//!
+//! Key insight: Higher detail requires exponentially more chunks to cover same area!
 //!
 //! Controls:
 //! - WASD: Move camera
@@ -22,16 +23,18 @@ use engine::{FlyCameraController, FlyCameraPlugin};
 use std::time::Instant;
 use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
 
+const WORLD_AREA_SIZE: f32 = 32.0; // All LOD levels cover same 32m × 32m area
+
 fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Camera positioned to view all three terrain patches
+    // Camera positioned to view all three LOD patches
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(20.0, 20.0, 20.0).looking_at(Vec3::new(15.0, 0.0, 0.0), Vec3::Y),
-        FlyCameraController::new(15.0, 0.003),
+        Transform::from_xyz(50.0, 40.0, 50.0).looking_at(Vec3::new(50.0, 0.0, 0.0), Vec3::Y),
+        FlyCameraController::new(20.0, 0.003),
     ));
 
     // Directional light
@@ -44,86 +47,116 @@ fn setup_scene(
         Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.7, 0.4, 0.0)),
     ));
 
-    info!("Generating multi-scale terrain comparison...");
+    info!("Generating multi-LOD terrain comparison...");
+    info!("All patches cover {}m × {}m world area", WORLD_AREA_SIZE, WORLD_AREA_SIZE);
 
-    // Three different sampling resolutions to test
-    // All meshes rendered at 0.25m voxel size, but terrain sampled at different frequencies
-    let scales = [
-        ("High (0.25m)", 0.25, Color::srgb(0.3, 0.7, 0.2)),  // Green - sample every 0.25m
-        ("Med (1.0m)",   1.0,  Color::srgb(0.2, 0.6, 0.8)),  // Blue - sample every 1.0m
-        ("Low (4.0m)",   4.0,  Color::srgb(0.7, 0.4, 0.2)),  // Brown - sample every 4.0m
+    // Three LOD levels with different voxel sizes
+    let lod_configs = [
+        ("Low (4m voxels)",    4.0,  Color::srgb(0.7, 0.4, 0.2)),  // Brown - far distance
+        ("Medium (1m voxels)", 1.0,  Color::srgb(0.2, 0.6, 0.8)),  // Blue - medium distance
+        ("High (0.25m voxels)", 0.25, Color::srgb(0.3, 0.7, 0.2)),  // Green - close up
     ];
 
-    const RENDER_VOXEL_SIZE: f32 = 0.25; // All meshes rendered at same scale
-    let chunk_spacing = 12.0; // Space between chunks for visibility
+    let lod_spacing = 50.0; // Space between LOD patches
 
-    for (i, (label, sample_resolution, color)) in scales.iter().enumerate() {
-        info!("Generating {} terrain (sample every {}m)...", label, sample_resolution);
+    for (lod_index, (label, voxel_size, color)) in lod_configs.iter().enumerate() {
+        info!("\n=== Generating {} ===", label);
 
         let start = Instant::now();
 
-        // Generate chunk with specified sampling resolution
-        let chunk = generate_terrain_chunk(0, 0, *sample_resolution);
-        // But render all meshes at the same voxel size for consistent physical dimensions
-        let mesh = voxel::meshing::generate_chunk_mesh(&chunk, RENDER_VOXEL_SIZE);
+        // Calculate chunk world size and how many chunks needed
+        let chunk_world_size = CHUNK_SIZE as f32 * voxel_size;
+        let chunks_per_edge = (WORLD_AREA_SIZE / chunk_world_size).ceil() as usize;
+        let total_chunks = chunks_per_edge * chunks_per_edge;
 
-        let generation_time = start.elapsed();
-        info!("  Generated in {:?}", generation_time);
+        info!("  Voxel size: {}m", voxel_size);
+        info!("  Chunk world size: {}m", chunk_world_size);
+        info!("  Chunks per edge: {}", chunks_per_edge);
+        info!("  Total chunks: {}", total_chunks);
 
-        // Create material with distinctive color
+        // Create material for this LOD
         let material = materials.add(StandardMaterial {
             base_color: *color,
             perceptual_roughness: 0.85,
             ..default()
         });
 
-        // Position side-by-side
-        let position = Vec3::new(i as f32 * chunk_spacing, 0.0, 0.0);
+        // LOD patch position (side-by-side)
+        let lod_base_position = Vec3::new(lod_index as f32 * lod_spacing, 0.0, 0.0);
 
-        commands.spawn((
-            Mesh3d(meshes.add(mesh)),
-            MeshMaterial3d(material),
-            Transform::from_translation(position),
-            Wireframe,
-        ));
+        // Generate grid of chunks for this LOD level
+        let mut chunk_count = 0;
+        for grid_x in 0..chunks_per_edge {
+            for grid_z in 0..chunks_per_edge {
+                // World offset for this chunk
+                let chunk_world_offset_x = grid_x as f32 * chunk_world_size;
+                let chunk_world_offset_z = grid_z as f32 * chunk_world_size;
 
-        info!("  Spawned at {:?}", position);
+                // Skip chunks outside our target area
+                if chunk_world_offset_x >= WORLD_AREA_SIZE || chunk_world_offset_z >= WORLD_AREA_SIZE {
+                    continue;
+                }
+
+                // Generate chunk with terrain
+                let chunk = generate_terrain_chunk(
+                    chunk_world_offset_x,
+                    chunk_world_offset_z,
+                    *voxel_size,
+                );
+
+                // Generate mesh at native voxel size
+                let mesh = voxel::meshing::generate_chunk_mesh(&chunk, *voxel_size);
+
+                // Position chunk within LOD patch
+                let chunk_position = lod_base_position + Vec3::new(
+                    chunk_world_offset_x,
+                    0.0,
+                    chunk_world_offset_z,
+                );
+
+                commands.spawn((
+                    Mesh3d(meshes.add(mesh)),
+                    MeshMaterial3d(material.clone()),
+                    Transform::from_translation(chunk_position),
+                    Wireframe,
+                ));
+
+                chunk_count += 1;
+            }
+        }
+
+        let elapsed = start.elapsed();
+        info!("  Generated {} chunks in {:?}", chunk_count, elapsed);
+        info!("  Average: {:?} per chunk", elapsed / chunk_count as u32);
     }
 
-    info!("Multi-scale terrain generation complete!");
-    info!("Compare the three terrain patches:");
-    info!("  - Green (left): High detail (0.25m voxels)");
-    info!("  - Blue (middle): Medium detail (1.0m voxels)");
-    info!("  - Brown (right): Low detail (4.0m voxels)");
+    info!("\n=== Terrain Generation Complete! ===");
+    info!("Compare the three LOD patches:");
+    info!("  Brown (left): Low detail - 1 chunk, 4m voxels, blocky");
+    info!("  Blue (middle): Medium detail - 4 chunks, 1m voxels");
+    info!("  Green (right): High detail - 16 chunks, 0.25m voxels, smooth");
 }
 
-/// Generate a terrain chunk at a given world offset with parameterized voxel size
+/// Generate a terrain chunk at a given world offset with specified voxel size
 ///
-/// For this test, we want all chunks to represent the SAME world area (e.g., 0-8m)
-/// but with different sampling rates (voxel sizes).
-/// This lets us compare how the same terrain looks at different resolutions.
-fn generate_terrain_chunk(chunk_offset_x: usize, chunk_offset_z: usize, voxel_size: f32) -> Chunk {
+/// Key: Uses world-space coordinates so terrain is consistent across all LOD levels
+fn generate_terrain_chunk(world_offset_x: f32, world_offset_z: f32, voxel_size: f32) -> Chunk {
     let mut chunk = Chunk::new();
-
-    // Fixed world area: always 8m × 8m (matching the high-res chunk size)
-    const WORLD_AREA_SIZE: f32 = 8.0;
 
     for local_x in 0..CHUNK_SIZE {
         for local_z in 0..CHUNK_SIZE {
-            // Map voxel coordinates to the fixed world area
-            // All chunks sample the same 8m × 8m area, just at different resolutions
-            let world_x = (chunk_offset_x as f32 * WORLD_AREA_SIZE)
-                + (local_x as f32 / CHUNK_SIZE as f32) * WORLD_AREA_SIZE;
-            let world_z = (chunk_offset_z as f32 * WORLD_AREA_SIZE)
-                + (local_z as f32 / CHUNK_SIZE as f32) * WORLD_AREA_SIZE;
+            // Calculate world position for this voxel
+            let world_x = world_offset_x + (local_x as f32 * voxel_size);
+            let world_z = world_offset_z + (local_z as f32 * voxel_size);
 
-            // Generate terrain height in world units (meters)
-            let height = terrain_height(world_x, world_z);
+            // Get terrain height at this world position (in meters)
+            let height_meters = terrain_height(world_x, world_z);
 
-            // Convert height to voxel coordinates
-            let height_voxels = (height / voxel_size) as usize;
+            // Convert to voxel coordinates
+            let height_voxels = (height_meters / voxel_size) as usize;
             let max_height = height_voxels.min(CHUNK_SIZE - 1);
 
+            // Fill column up to height
             for local_y in 0..=max_height {
                 let voxel_type = if local_y == max_height {
                     VoxelType::Grass
@@ -145,22 +178,21 @@ fn generate_terrain_chunk(chunk_offset_x: usize, chunk_offset_z: usize, voxel_si
 }
 
 /// Calculate terrain height at world coordinates (in meters)
-/// Uses layered sine waves (simple procedural approach)
+/// Uses layered sine waves for varied terrain
 ///
-/// IMPORTANT: This function is voxel_size-independent!
-/// It always works in world-space meters.
+/// IMPORTANT: This function is scale-independent - works in world-space meters
 fn terrain_height(world_x: f32, world_z: f32) -> f32 {
     // Base height
-    let base = 1.0;
+    let base = 2.0;
 
-    // Large rolling hills
-    let hills = (world_x * 0.05).sin() * (world_z * 0.05).cos() * 3.0;
+    // Large rolling hills (dominant features)
+    let hills = (world_x * 0.1).sin() * (world_z * 0.1).cos() * 4.0;
 
     // Medium frequency variation
-    let medium = (world_x * 0.15 + world_z * 0.1).sin() * 1.5;
+    let medium = (world_x * 0.3 + world_z * 0.2).sin() * 2.0;
 
-    // Small detail
-    let detail = (world_x * 0.4).cos() * (world_z * 0.35).sin() * 0.5;
+    // Small detail (only visible at high LOD)
+    let detail = (world_x * 0.8).cos() * (world_z * 0.7).sin() * 0.5;
 
     // Combine and ensure positive
     (base + hills + medium + detail).max(0.5)
