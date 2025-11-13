@@ -2,12 +2,27 @@
 //!
 //! Simple 2x2 flat grid of chunks to isolate gap issues.
 //! All chunks solid green for easy visualization.
+//!
+//! Controls:
+//! - WASD: Move camera
+//! - QE: Up/Down
+//! - Mouse: Look around
 
-use bevy::prelude::*;
+use bevy::{
+    input::mouse::MouseMotion,
+    pbr::wireframe::{Wireframe, WireframePlugin},
+    prelude::*,
+};
 use bevy_brp_extras::BrpExtrasPlugin;
 use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
 
 const VOXEL_SIZE: f32 = 0.25;
+
+#[derive(Component)]
+struct CameraController {
+    move_speed: f32,
+    sensitivity: f32,
+}
 
 fn setup_scene(
     mut commands: Commands,
@@ -18,6 +33,10 @@ fn setup_scene(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(20.0, 20.0, 20.0).looking_at(Vec3::new(4.0, 0.0, 4.0), Vec3::Y),
+        CameraController {
+            move_speed: 10.0,
+            sensitivity: 0.003,
+        },
     ));
 
     // Directional light
@@ -71,6 +90,7 @@ fn setup_scene(
                 Mesh3d(meshes.add(mesh)),
                 MeshMaterial3d(material.clone()),
                 Transform::from_translation(position),
+                Wireframe,
             ));
 
             info!("Spawned chunk at grid position ({}, {}), world position {:?}",
@@ -81,9 +101,56 @@ fn setup_scene(
     info!("2x2 grid generation complete!");
 }
 
+fn camera_movement(
+    time: Res<Time>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut mouse_motion: EventReader<MouseMotion>,
+    mut camera_query: Query<(&mut Transform, &CameraController), With<Camera3d>>,
+) {
+    for (mut transform, controller) in camera_query.iter_mut() {
+        let mut velocity = Vec3::ZERO;
+        let forward = -*transform.local_z();
+        let right = *transform.local_x();
+        let up = *transform.local_y();
+
+        // WASD movement
+        if keyboard_input.pressed(KeyCode::KeyW) {
+            velocity += forward;
+        }
+        if keyboard_input.pressed(KeyCode::KeyS) {
+            velocity -= forward;
+        }
+        if keyboard_input.pressed(KeyCode::KeyA) {
+            velocity -= right;
+        }
+        if keyboard_input.pressed(KeyCode::KeyD) {
+            velocity += right;
+        }
+        if keyboard_input.pressed(KeyCode::KeyQ) {
+            velocity -= up;
+        }
+        if keyboard_input.pressed(KeyCode::KeyE) {
+            velocity += up;
+        }
+
+        velocity = velocity.normalize_or_zero();
+        transform.translation += velocity * controller.move_speed * time.delta_secs();
+
+        // Mouse look
+        for mouse_event in mouse_motion.read() {
+            let yaw = -mouse_event.delta.x * controller.sensitivity;
+            let pitch = -mouse_event.delta.y * controller.sensitivity;
+
+            transform.rotate_y(yaw);
+            transform.rotate_local_x(pitch);
+        }
+    }
+}
+
 fn main() {
     let mut app = engine::create_app();
-    app.add_plugins(BrpExtrasPlugin);
+    app.add_plugins((BrpExtrasPlugin, WireframePlugin::default()));
     app.add_systems(Startup, setup_scene);
+    app.add_systems(Update, camera_movement);
     app.run();
 }
