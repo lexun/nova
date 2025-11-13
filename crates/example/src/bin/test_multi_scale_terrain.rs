@@ -97,11 +97,12 @@ fn setup_scene(
                     continue;
                 }
 
-                // Generate chunk with terrain
+                // Generate chunk with terrain, clamped to target area
                 let chunk = generate_terrain_chunk(
                     chunk_world_offset_x,
                     chunk_world_offset_z,
                     *voxel_size,
+                    WORLD_AREA_SIZE,
                 );
 
                 // Generate mesh at native voxel size
@@ -140,7 +141,8 @@ fn setup_scene(
 /// Generate a terrain chunk at a given world offset with specified voxel size
 ///
 /// Key: Uses world-space coordinates so terrain is consistent across all LOD levels
-fn generate_terrain_chunk(world_offset_x: f32, world_offset_z: f32, voxel_size: f32) -> Chunk {
+/// Clamps generation to max_world_size to avoid oversized chunks
+fn generate_terrain_chunk(world_offset_x: f32, world_offset_z: f32, voxel_size: f32, max_world_size: f32) -> Chunk {
     let mut chunk = Chunk::new();
 
     for local_x in 0..CHUNK_SIZE {
@@ -148,6 +150,11 @@ fn generate_terrain_chunk(world_offset_x: f32, world_offset_z: f32, voxel_size: 
             // Calculate world position for this voxel
             let world_x = world_offset_x + (local_x as f32 * voxel_size);
             let world_z = world_offset_z + (local_z as f32 * voxel_size);
+
+            // Skip voxels outside the target world area
+            if world_x >= world_offset_x + max_world_size || world_z >= world_offset_z + max_world_size {
+                continue;
+            }
 
             // Get terrain height at this world position (in meters)
             let height_meters = terrain_height(world_x, world_z);
