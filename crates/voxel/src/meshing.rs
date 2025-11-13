@@ -229,8 +229,11 @@ fn add_quad(
     uvs.push([0.0, 1.0]);
 
     // Add indices (two triangles)
-    if back_face {
-        // Flip winding order for back faces
+    // Y-axis faces need inverted winding order due to axis orientation
+    let needs_flip = (axis == 1) ^ back_face;
+
+    if needs_flip {
+        // Flip winding order
         indices.extend_from_slice(&[
             base_index,
             base_index + 2,
