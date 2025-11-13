@@ -33,7 +33,7 @@ use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
 
 const VOXEL_SIZE: f32 = 0.25; // 25cm voxels
 const PLANET_RADIUS: f32 = 500.0; // 500m radius = 1km diameter
-const CHUNKS_PER_FACE_EDGE: usize = 32; // 32x32 chunks per cube face (6,144 total)
+const CHUNKS_PER_FACE_EDGE: usize = 4; // 4x4 chunks per cube face (96 total) - reduced for testing
 
 #[derive(Component)]
 struct CameraController {
