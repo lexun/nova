@@ -119,12 +119,12 @@ fn setup_scene(
     let chunk_world_size = CHUNK_SIZE as f32 * VOXEL_SIZE; // 8 meters per chunk
 
     // Materials for different terrain types
-    let stone_material = materials.add(StandardMaterial {
+    let _stone_material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.6, 0.6, 0.6),
         perceptual_roughness: 0.8,
         ..default()
     });
-    let dirt_material = materials.add(StandardMaterial {
+    let _dirt_material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.4, 0.2, 0.1),
         perceptual_roughness: 0.9,
         ..default()
@@ -188,7 +188,6 @@ fn setup_scene(
 /// Generate a chunk of voxels for a specific position on the planet
 fn generate_planet_chunk(face: usize, chunk_u: usize, chunk_v: usize) -> Chunk {
     let mut chunk = Chunk::new();
-    let mut voxel_count = 0;
 
     // Calculate the UV range and center for this chunk on the cube face
     let u_start = (chunk_u as f32 / CHUNKS_PER_FACE_EDGE as f32) * 2.0 - 1.0;

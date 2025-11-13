@@ -22,9 +22,6 @@ use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
 
 const VOXEL_SIZE: f32 = 0.25;
 
-#[derive(Component)]
-struct ChunkLabel(String);
-
 fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -116,7 +113,6 @@ fn spawn_chunk(
         MeshMaterial3d(material.clone()),
         Transform::from_translation(position),
         Wireframe,
-        ChunkLabel(label.to_string()),
     ));
 
     info!("Spawned '{}' chunk at {:?}", label, position);

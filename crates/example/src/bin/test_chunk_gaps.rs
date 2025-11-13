@@ -9,7 +9,6 @@
 //! - Mouse: Look around
 
 use bevy::{
-    input::mouse::MouseMotion,
     pbr::wireframe::{Wireframe, WireframePlugin},
     prelude::*,
 };
@@ -104,7 +103,7 @@ fn setup_scene(
 fn camera_movement(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_motion: EventReader<MouseMotion>,
+    mut mouse_motion: MessageReader<bevy::input::mouse::MouseMotion>,
     mut camera_query: Query<(&mut Transform, &CameraController), With<Camera3d>>,
 ) {
     for (mut transform, controller) in camera_query.iter_mut() {
