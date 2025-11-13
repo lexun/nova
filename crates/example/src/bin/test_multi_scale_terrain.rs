@@ -46,23 +46,26 @@ fn setup_scene(
 
     info!("Generating multi-scale terrain comparison...");
 
-    // Three different scales to test
+    // Three different sampling resolutions to test
+    // All meshes rendered at 0.25m voxel size, but terrain sampled at different frequencies
     let scales = [
-        ("High (0.25m)", 0.25, Color::srgb(0.3, 0.7, 0.2)),  // Green
-        ("Med (1.0m)",   1.0,  Color::srgb(0.2, 0.6, 0.8)),  // Blue
-        ("Low (4.0m)",   4.0,  Color::srgb(0.7, 0.4, 0.2)),  // Brown
+        ("High (0.25m)", 0.25, Color::srgb(0.3, 0.7, 0.2)),  // Green - sample every 0.25m
+        ("Med (1.0m)",   1.0,  Color::srgb(0.2, 0.6, 0.8)),  // Blue - sample every 1.0m
+        ("Low (4.0m)",   4.0,  Color::srgb(0.7, 0.4, 0.2)),  // Brown - sample every 4.0m
     ];
 
+    const RENDER_VOXEL_SIZE: f32 = 0.25; // All meshes rendered at same scale
     let chunk_spacing = 12.0; // Space between chunks for visibility
 
-    for (i, (label, voxel_size, color)) in scales.iter().enumerate() {
-        info!("Generating {} terrain (voxel_size = {}m)...", label, voxel_size);
+    for (i, (label, sample_resolution, color)) in scales.iter().enumerate() {
+        info!("Generating {} terrain (sample every {}m)...", label, sample_resolution);
 
         let start = Instant::now();
 
-        // Generate chunk at this voxel size
-        let chunk = generate_terrain_chunk(0, 0, *voxel_size);
-        let mesh = voxel::meshing::generate_chunk_mesh(&chunk, *voxel_size);
+        // Generate chunk with specified sampling resolution
+        let chunk = generate_terrain_chunk(0, 0, *sample_resolution);
+        // But render all meshes at the same voxel size for consistent physical dimensions
+        let mesh = voxel::meshing::generate_chunk_mesh(&chunk, RENDER_VOXEL_SIZE);
 
         let generation_time = start.elapsed();
         info!("  Generated in {:?}", generation_time);
