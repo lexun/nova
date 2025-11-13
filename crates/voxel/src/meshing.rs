@@ -222,11 +222,12 @@ fn add_quad(
         normals.push(normal);
     }
 
-    // Add UVs (simple mapping)
-    uvs.push([0.0, 0.0]);
-    uvs.push([1.0, 0.0]);
-    uvs.push([1.0, 1.0]);
-    uvs.push([0.0, 1.0]);
+    // Add UVs (map to texture atlas based on voxel type)
+    let (u_min, u_max) = get_atlas_u_range(_voxel_type);
+    uvs.push([u_min, 0.0]);
+    uvs.push([u_max, 0.0]);
+    uvs.push([u_max, 1.0]);
+    uvs.push([u_min, 1.0]);
 
     // Add indices (two triangles)
     // Y-axis faces need inverted winding order due to axis orientation
@@ -251,5 +252,17 @@ fn add_quad(
             base_index + 2,
             base_index + 3,
         ]);
+    }
+}
+
+/// Map voxel type to UV range in texture atlas
+/// Atlas layout: [Air | Grass | Dirt | Stone]
+/// Each occupies 0.25 of U coordinate (4 materials in horizontal strip)
+fn get_atlas_u_range(voxel_type: VoxelType) -> (f32, f32) {
+    match voxel_type {
+        VoxelType::Air => (0.0, 0.25),     // Shouldn't render, but just in case
+        VoxelType::Grass => (0.25, 0.5),   // Green
+        VoxelType::Dirt => (0.5, 0.75),    // Brown
+        VoxelType::Stone => (0.75, 1.0),   // Gray
     }
 }

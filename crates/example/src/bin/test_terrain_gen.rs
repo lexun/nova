@@ -23,6 +23,7 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
 ) {
     // Camera positioned to view terrain
     let grid_world_size = (TERRAIN_GRID_SIZE as f32 * CHUNK_SIZE as f32 * VOXEL_SIZE) / 2.0;
@@ -43,22 +44,15 @@ fn setup_scene(
         Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.7, 0.4, 0.0)),
     ));
 
-    // Materials for each voxel type
-    let grass_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.3, 0.7, 0.2),
+    // Generate texture atlas
+    info!("Generating texture atlas...");
+    let atlas_image = voxel::atlas::generate_atlas();
+    let atlas_texture = images.add(atlas_image);
+
+    // Create material using the atlas
+    let atlas_material = materials.add(StandardMaterial {
+        base_color_texture: Some(atlas_texture),
         perceptual_roughness: 0.9,
-        ..default()
-    });
-
-    let dirt_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.5, 0.3, 0.1),
-        perceptual_roughness: 0.85,
-        ..default()
-    });
-
-    let stone_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.5, 0.5, 0.5),
-        perceptual_roughness: 0.8,
         ..default()
     });
 
@@ -66,13 +60,14 @@ fn setup_scene(
 
     let chunk_world_size = CHUNK_SIZE as f32 * VOXEL_SIZE;
 
-    // Generate terrain chunks - ONE MESH PER VOXEL TYPE to preserve colors
+    // Generate terrain chunks - ONE MESH PER CHUNK using atlas for all materials
     for grid_x in 0..TERRAIN_GRID_SIZE {
         for grid_z in 0..TERRAIN_GRID_SIZE {
             let chunk_offset_x = grid_x * CHUNK_SIZE;
             let chunk_offset_z = grid_z * CHUNK_SIZE;
 
             let chunk = generate_terrain_chunk(chunk_offset_x, chunk_offset_z);
+            let mesh = voxel::meshing::generate_chunk_mesh(&chunk, VOXEL_SIZE);
 
             let position = Vec3::new(
                 grid_x as f32 * chunk_world_size,
@@ -80,44 +75,12 @@ fn setup_scene(
                 grid_z as f32 * chunk_world_size,
             );
 
-            // Generate separate mesh for each voxel type
-            // This preserves the visual appearance of each voxel material
-            let grass_chunk = filter_chunk_by_type(&chunk, VoxelType::Grass);
-            let dirt_chunk = filter_chunk_by_type(&chunk, VoxelType::Dirt);
-            let stone_chunk = filter_chunk_by_type(&chunk, VoxelType::Stone);
-
-            // Spawn grass voxels
-            if !is_chunk_empty(&grass_chunk) {
-                let mesh = voxel::meshing::generate_chunk_mesh(&grass_chunk, VOXEL_SIZE);
-                commands.spawn((
-                    Mesh3d(meshes.add(mesh)),
-                    MeshMaterial3d(grass_material.clone()),
-                    Transform::from_translation(position),
-                    Wireframe,
-                ));
-            }
-
-            // Spawn dirt voxels
-            if !is_chunk_empty(&dirt_chunk) {
-                let mesh = voxel::meshing::generate_chunk_mesh(&dirt_chunk, VOXEL_SIZE);
-                commands.spawn((
-                    Mesh3d(meshes.add(mesh)),
-                    MeshMaterial3d(dirt_material.clone()),
-                    Transform::from_translation(position),
-                    Wireframe,
-                ));
-            }
-
-            // Spawn stone voxels
-            if !is_chunk_empty(&stone_chunk) {
-                let mesh = voxel::meshing::generate_chunk_mesh(&stone_chunk, VOXEL_SIZE);
-                commands.spawn((
-                    Mesh3d(meshes.add(mesh)),
-                    MeshMaterial3d(stone_material.clone()),
-                    Transform::from_translation(position),
-                    Wireframe,
-                ));
-            }
+            commands.spawn((
+                Mesh3d(meshes.add(mesh)),
+                MeshMaterial3d(atlas_material.clone()),
+                Transform::from_translation(position),
+                Wireframe,
+            ));
         }
     }
 
@@ -160,41 +123,6 @@ fn generate_terrain_chunk(chunk_offset_x: usize, chunk_offset_z: usize) -> Chunk
     }
 
     chunk
-}
-
-/// Filter a chunk to only include voxels of a specific type
-fn filter_chunk_by_type(chunk: &Chunk, voxel_type: VoxelType) -> Chunk {
-    let mut filtered = Chunk::new();
-
-    for x in 0..CHUNK_SIZE {
-        for y in 0..CHUNK_SIZE {
-            for z in 0..CHUNK_SIZE {
-                if let Some(voxel) = chunk.get_voxel(x, y, z) {
-                    if voxel.voxel_type == voxel_type {
-                        filtered.set_voxel(x, y, z, *voxel);
-                    }
-                }
-            }
-        }
-    }
-
-    filtered
-}
-
-/// Check if a chunk has any solid voxels
-fn is_chunk_empty(chunk: &Chunk) -> bool {
-    for x in 0..CHUNK_SIZE {
-        for y in 0..CHUNK_SIZE {
-            for z in 0..CHUNK_SIZE {
-                if let Some(voxel) = chunk.get_voxel(x, y, z) {
-                    if voxel.voxel_type != VoxelType::Air && voxel.density > 0 {
-                        return false;
-                    }
-                }
-            }
-        }
-    }
-    true
 }
 
 /// Calculate terrain height at world coordinates

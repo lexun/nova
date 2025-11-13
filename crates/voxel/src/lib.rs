@@ -29,6 +29,7 @@
 
 use bevy::prelude::*;
 
+pub mod atlas;
 pub mod meshing;
 
 /// Types of voxel materials
