@@ -96,19 +96,23 @@ fn setup_scene(
 
 /// Generate a terrain chunk at a given world offset with parameterized voxel size
 ///
-/// Key insight: terrain_height() returns world-space height (meters),
-/// which we then divide by voxel_size to get voxel coordinates.
-/// This ensures the SAME terrain appears at all scales.
+/// For this test, we want all chunks to represent the SAME world area (e.g., 0-8m)
+/// but with different sampling rates (voxel sizes).
+/// This lets us compare how the same terrain looks at different resolutions.
 fn generate_terrain_chunk(chunk_offset_x: usize, chunk_offset_z: usize, voxel_size: f32) -> Chunk {
     let mut chunk = Chunk::new();
 
+    // Fixed world area: always 8m × 8m (matching the high-res chunk size)
+    const WORLD_AREA_SIZE: f32 = 8.0;
+
     for local_x in 0..CHUNK_SIZE {
         for local_z in 0..CHUNK_SIZE {
-            // World coordinates (in voxel-size units)
-            // For a chunk to represent the same world area regardless of voxel_size,
-            // we need to scale the world coordinates
-            let world_x = (chunk_offset_x + local_x) as f32 * voxel_size;
-            let world_z = (chunk_offset_z + local_z) as f32 * voxel_size;
+            // Map voxel coordinates to the fixed world area
+            // All chunks sample the same 8m × 8m area, just at different resolutions
+            let world_x = (chunk_offset_x as f32 * WORLD_AREA_SIZE)
+                + (local_x as f32 / CHUNK_SIZE as f32) * WORLD_AREA_SIZE;
+            let world_z = (chunk_offset_z as f32 * WORLD_AREA_SIZE)
+                + (local_z as f32 / CHUNK_SIZE as f32) * WORLD_AREA_SIZE;
 
             // Generate terrain height in world units (meters)
             let height = terrain_height(world_x, world_z);
