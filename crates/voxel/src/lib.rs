@@ -37,7 +37,7 @@ pub mod chunk;
 pub mod atlas;
 pub mod meshing;
 
-// System modules (to be populated in Phase 3)
+// System modules
 pub mod lod;
 pub mod terrain;
 

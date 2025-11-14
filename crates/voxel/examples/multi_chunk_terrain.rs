@@ -14,7 +14,7 @@ use bevy::{
 };
 use bevy_brp_extras::BrpExtrasPlugin;
 use engine::{FlyCameraController, FlyCameraPlugin};
-use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
+use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE, terrain::terrain_height};
 
 const VOXEL_SIZE: f32 = 0.25;
 const TERRAIN_GRID_SIZE: usize = 5; // 5x5 grid of chunks
@@ -123,26 +123,6 @@ fn generate_terrain_chunk(chunk_offset_x: usize, chunk_offset_z: usize) -> Chunk
     }
 
     chunk
-}
-
-/// Calculate terrain height at world coordinates
-/// Uses layered sine waves (simple procedural approach)
-/// Replace with proper noise (Perlin/Simplex) for production
-fn terrain_height(world_x: f32, world_z: f32) -> f32 {
-    // Base height
-    let base = 1.0;
-
-    // Large rolling hills
-    let hills = (world_x * 0.05).sin() * (world_z * 0.05).cos() * 3.0;
-
-    // Medium frequency variation
-    let medium = (world_x * 0.15 + world_z * 0.1).sin() * 1.5;
-
-    // Small detail
-    let detail = (world_x * 0.4).cos() * (world_z * 0.35).sin() * 0.5;
-
-    // Combine and ensure positive
-    (base + hills + medium + detail).max(0.5)
 }
 
 fn main() {

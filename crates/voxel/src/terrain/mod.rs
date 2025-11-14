@@ -2,4 +2,7 @@
 //!
 //! Provides terrain generation functions using noise-based algorithms.
 
-// Module exports will be added in Phase 3
+pub mod generator;
+
+// Re-export terrain generation function
+pub use generator::terrain_height;

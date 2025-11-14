@@ -25,21 +25,15 @@ use bevy::{
 use bevy_brp_extras::BrpExtrasPlugin;
 use engine::{FlyCameraController, FlyCameraPlugin};
 use std::collections::HashMap;
-use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
+use voxel::{
+    Chunk, Voxel, VoxelType, CHUNK_SIZE,
+    lod::{LodLevel, LOD_4_DISTANCE, HYSTERESIS_BUFFER},
+    terrain::terrain_height,
+};
 
 // World configuration
 const WORLD_SIZE: f32 = 256.0; // 256m × 256m world
 const REGION_SIZE: f32 = 32.0; // Each region is 32m × 32m
-
-// LOD configuration - 5 levels with 2× voxel size jumps
-const LOD_0_DISTANCE: f32 = 35.0;   // 0.25m voxels
-const LOD_1_DISTANCE: f32 = 75.0;   // 0.5m voxels
-const LOD_2_DISTANCE: f32 = 150.0;  // 1.0m voxels
-const LOD_3_DISTANCE: f32 = 300.0;  // 2.0m voxels
-const LOD_4_DISTANCE: f32 = 400.0;  // 4.0m voxels, culled beyond this
-
-// Hysteresis buffer to prevent flickering
-const HYSTERESIS_BUFFER: f32 = 5.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct RegionCoord {
@@ -47,108 +41,12 @@ struct RegionCoord {
     z: i32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum LodLevel {
-    Lod0,  // 0.25m voxels, 4×4 chunks
-    Lod1,  // 0.5m voxels, 2×2 chunks
-    Lod2,  // 1.0m voxels, 1 chunk
-    Lod3,  // 2.0m voxels, 1 chunk
-    Lod4,  // 4.0m voxels, 1 chunk
-    None,  // Too far, not rendered
+// Example-specific extension trait for LodLevel colors
+trait LodLevelExt {
+    fn color(&self) -> Color;
 }
 
-impl LodLevel {
-    fn from_distance(distance: f32) -> Self {
-        if distance < LOD_0_DISTANCE {
-            LodLevel::Lod0
-        } else if distance < LOD_1_DISTANCE {
-            LodLevel::Lod1
-        } else if distance < LOD_2_DISTANCE {
-            LodLevel::Lod2
-        } else if distance < LOD_3_DISTANCE {
-            LodLevel::Lod3
-        } else if distance < LOD_4_DISTANCE {
-            LodLevel::Lod4
-        } else {
-            LodLevel::None
-        }
-    }
-
-    /// Get the target LOD with hysteresis to prevent flickering
-    fn from_distance_with_hysteresis(distance: f32, current: LodLevel) -> Self {
-        match current {
-            LodLevel::None => {
-                // Coming into view - use regular thresholds
-                Self::from_distance(distance)
-            }
-            LodLevel::Lod4 => {
-                if distance < LOD_3_DISTANCE - HYSTERESIS_BUFFER {
-                    LodLevel::Lod3
-                } else if distance > LOD_4_DISTANCE + HYSTERESIS_BUFFER {
-                    LodLevel::None
-                } else {
-                    LodLevel::Lod4
-                }
-            }
-            LodLevel::Lod3 => {
-                if distance < LOD_2_DISTANCE - HYSTERESIS_BUFFER {
-                    LodLevel::Lod2
-                } else if distance > LOD_3_DISTANCE + HYSTERESIS_BUFFER {
-                    LodLevel::Lod4
-                } else {
-                    LodLevel::Lod3
-                }
-            }
-            LodLevel::Lod2 => {
-                if distance < LOD_1_DISTANCE - HYSTERESIS_BUFFER {
-                    LodLevel::Lod1
-                } else if distance > LOD_2_DISTANCE + HYSTERESIS_BUFFER {
-                    LodLevel::Lod3
-                } else {
-                    LodLevel::Lod2
-                }
-            }
-            LodLevel::Lod1 => {
-                if distance < LOD_0_DISTANCE - HYSTERESIS_BUFFER {
-                    LodLevel::Lod0
-                } else if distance > LOD_1_DISTANCE + HYSTERESIS_BUFFER {
-                    LodLevel::Lod2
-                } else {
-                    LodLevel::Lod1
-                }
-            }
-            LodLevel::Lod0 => {
-                if distance > LOD_0_DISTANCE + HYSTERESIS_BUFFER {
-                    LodLevel::Lod1
-                } else {
-                    LodLevel::Lod0
-                }
-            }
-        }
-    }
-
-    fn voxel_size(&self) -> f32 {
-        match self {
-            LodLevel::Lod0 => 0.25,
-            LodLevel::Lod1 => 0.5,
-            LodLevel::Lod2 => 1.0,
-            LodLevel::Lod3 => 2.0,
-            LodLevel::Lod4 => 4.0,
-            LodLevel::None => 0.0,
-        }
-    }
-
-    fn chunks_per_edge(&self) -> usize {
-        match self {
-            LodLevel::Lod0 => 4,  // 4×4 = 16 chunks
-            LodLevel::Lod1 => 2,  // 2×2 = 4 chunks
-            LodLevel::Lod2 => 1,  // 1 chunk
-            LodLevel::Lod3 => 1,  // 1 chunk
-            LodLevel::Lod4 => 1,  // 1 chunk
-            LodLevel::None => 0,
-        }
-    }
-
+impl LodLevelExt for LodLevel {
     fn color(&self) -> Color {
         match self {
             LodLevel::Lod0 => Color::srgb(0.1, 0.8, 0.1),   // Bright green
@@ -390,24 +288,6 @@ fn generate_terrain_chunk(
     }
 
     chunk
-}
-
-/// Calculate terrain height at world coordinates (scale-independent)
-fn terrain_height(world_x: f32, world_z: f32) -> f32 {
-    // Base height
-    let base = 2.0;
-
-    // Large rolling hills (spans entire world)
-    let hills = (world_x * 0.02).sin() * (world_z * 0.02).cos() * 8.0;
-
-    // Medium frequency variation
-    let medium = (world_x * 0.1 + world_z * 0.08).sin() * 3.0;
-
-    // Small detail
-    let detail = (world_x * 0.4).cos() * (world_z * 0.35).sin() * 1.0;
-
-    // Combine and ensure positive
-    (base + hills + medium + detail).max(0.5)
 }
 
 /// Debug UI system

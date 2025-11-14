@@ -21,7 +21,7 @@ use bevy::{
 use bevy_brp_extras::BrpExtrasPlugin;
 use engine::{FlyCameraController, FlyCameraPlugin};
 use std::time::Instant;
-use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
+use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE, terrain::terrain_height};
 
 const WORLD_AREA_SIZE: f32 = 32.0; // All LOD levels cover same 32m × 32m area
 
@@ -182,27 +182,6 @@ fn generate_terrain_chunk(world_offset_x: f32, world_offset_z: f32, voxel_size: 
     }
 
     chunk
-}
-
-/// Calculate terrain height at world coordinates (in meters)
-/// Uses layered sine waves for varied terrain
-///
-/// IMPORTANT: This function is scale-independent - works in world-space meters
-fn terrain_height(world_x: f32, world_z: f32) -> f32 {
-    // Base height
-    let base = 2.0;
-
-    // Large rolling hills (dominant features)
-    let hills = (world_x * 0.1).sin() * (world_z * 0.1).cos() * 4.0;
-
-    // Medium frequency variation
-    let medium = (world_x * 0.3 + world_z * 0.2).sin() * 2.0;
-
-    // Small detail (only visible at high LOD)
-    let detail = (world_x * 0.8).cos() * (world_z * 0.7).sin() * 0.5;
-
-    // Combine and ensure positive
-    (base + hills + medium + detail).max(0.5)
 }
 
 fn main() {
