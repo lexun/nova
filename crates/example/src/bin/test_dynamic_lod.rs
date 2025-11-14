@@ -3,11 +3,13 @@
 //! Demonstrates real-time Level of Detail (LOD) transitions based on camera distance.
 //! Large terrain area where chunks spawn/despawn dynamically as you move around.
 //!
-//! ## LOD Strategy
+//! ## LOD Strategy (5 levels with 2× jumps)
 //!
-//! - **High LOD** (0-50m): 0.25m voxels, 16 chunks per region (4×4 grid)
-//! - **Medium LOD** (50-150m): 1.0m voxels, 4 chunks per region (2×2 grid)
-//! - **Low LOD** (>150m): 4.0m voxels, 1 chunk per region
+//! - **LOD 0** (0-35m): 0.25m voxels, 16 chunks per region (4×4 grid)
+//! - **LOD 1** (35-75m): 0.5m voxels, 4 chunks per region (2×2 grid)
+//! - **LOD 2** (75-150m): 1.0m voxels, 1 chunk per region
+//! - **LOD 3** (150-300m): 2.0m voxels, 1 chunk per region
+//! - **LOD 4** (>300m): 4.0m voxels, 1 chunk per region
 //!
 //! ## Controls
 //!
@@ -29,14 +31,14 @@ use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
 const WORLD_SIZE: f32 = 256.0; // 256m × 256m world
 const REGION_SIZE: f32 = 32.0; // Each region is 32m × 32m
 
-// LOD configuration
-const LOD_HIGH_DISTANCE: f32 = 50.0;
-const LOD_MEDIUM_DISTANCE: f32 = 150.0;
-const LOD_HIGH_VOXEL_SIZE: f32 = 0.25;
-const LOD_MEDIUM_VOXEL_SIZE: f32 = 1.0;
-const LOD_LOW_VOXEL_SIZE: f32 = 4.0;
+// LOD configuration - 5 levels with 2× voxel size jumps
+const LOD_0_DISTANCE: f32 = 35.0;   // 0.25m voxels
+const LOD_1_DISTANCE: f32 = 75.0;   // 0.5m voxels
+const LOD_2_DISTANCE: f32 = 150.0;  // 1.0m voxels
+const LOD_3_DISTANCE: f32 = 300.0;  // 2.0m voxels
+const LOD_4_DISTANCE: f32 = 400.0;  // 4.0m voxels, culled beyond this
 
-// Hysteresis buffer to prevent flickering (10% buffer)
+// Hysteresis buffer to prevent flickering
 const HYSTERESIS_BUFFER: f32 = 5.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -47,21 +49,26 @@ struct RegionCoord {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LodLevel {
-    High,   // 0.25m voxels, 4×4 chunks
-    Medium, // 1.0m voxels, 2×2 chunks
-    Low,    // 4.0m voxels, 1 chunk
-    None,   // Too far, not rendered
+    Lod0,  // 0.25m voxels, 4×4 chunks
+    Lod1,  // 0.5m voxels, 2×2 chunks
+    Lod2,  // 1.0m voxels, 1 chunk
+    Lod3,  // 2.0m voxels, 1 chunk
+    Lod4,  // 4.0m voxels, 1 chunk
+    None,  // Too far, not rendered
 }
 
 impl LodLevel {
     fn from_distance(distance: f32) -> Self {
-        if distance < LOD_HIGH_DISTANCE {
-            LodLevel::High
-        } else if distance < LOD_MEDIUM_DISTANCE {
-            LodLevel::Medium
-        } else if distance < LOD_MEDIUM_DISTANCE + 50.0 {
-            // Render a bit beyond medium distance
-            LodLevel::Low
+        if distance < LOD_0_DISTANCE {
+            LodLevel::Lod0
+        } else if distance < LOD_1_DISTANCE {
+            LodLevel::Lod1
+        } else if distance < LOD_2_DISTANCE {
+            LodLevel::Lod2
+        } else if distance < LOD_3_DISTANCE {
+            LodLevel::Lod3
+        } else if distance < LOD_4_DISTANCE {
+            LodLevel::Lod4
         } else {
             LodLevel::None
         }
@@ -74,29 +81,47 @@ impl LodLevel {
                 // Coming into view - use regular thresholds
                 Self::from_distance(distance)
             }
-            LodLevel::Low => {
-                if distance < LOD_MEDIUM_DISTANCE - HYSTERESIS_BUFFER {
-                    LodLevel::Medium
-                } else if distance > LOD_MEDIUM_DISTANCE + 50.0 + HYSTERESIS_BUFFER {
+            LodLevel::Lod4 => {
+                if distance < LOD_3_DISTANCE - HYSTERESIS_BUFFER {
+                    LodLevel::Lod3
+                } else if distance > LOD_4_DISTANCE + HYSTERESIS_BUFFER {
                     LodLevel::None
                 } else {
-                    LodLevel::Low
+                    LodLevel::Lod4
                 }
             }
-            LodLevel::Medium => {
-                if distance < LOD_HIGH_DISTANCE - HYSTERESIS_BUFFER {
-                    LodLevel::High
-                } else if distance > LOD_MEDIUM_DISTANCE + HYSTERESIS_BUFFER {
-                    LodLevel::Low
+            LodLevel::Lod3 => {
+                if distance < LOD_2_DISTANCE - HYSTERESIS_BUFFER {
+                    LodLevel::Lod2
+                } else if distance > LOD_3_DISTANCE + HYSTERESIS_BUFFER {
+                    LodLevel::Lod4
                 } else {
-                    LodLevel::Medium
+                    LodLevel::Lod3
                 }
             }
-            LodLevel::High => {
-                if distance > LOD_HIGH_DISTANCE + HYSTERESIS_BUFFER {
-                    LodLevel::Medium
+            LodLevel::Lod2 => {
+                if distance < LOD_1_DISTANCE - HYSTERESIS_BUFFER {
+                    LodLevel::Lod1
+                } else if distance > LOD_2_DISTANCE + HYSTERESIS_BUFFER {
+                    LodLevel::Lod3
                 } else {
-                    LodLevel::High
+                    LodLevel::Lod2
+                }
+            }
+            LodLevel::Lod1 => {
+                if distance < LOD_0_DISTANCE - HYSTERESIS_BUFFER {
+                    LodLevel::Lod0
+                } else if distance > LOD_1_DISTANCE + HYSTERESIS_BUFFER {
+                    LodLevel::Lod2
+                } else {
+                    LodLevel::Lod1
+                }
+            }
+            LodLevel::Lod0 => {
+                if distance > LOD_0_DISTANCE + HYSTERESIS_BUFFER {
+                    LodLevel::Lod1
+                } else {
+                    LodLevel::Lod0
                 }
             }
         }
@@ -104,27 +129,33 @@ impl LodLevel {
 
     fn voxel_size(&self) -> f32 {
         match self {
-            LodLevel::High => LOD_HIGH_VOXEL_SIZE,
-            LodLevel::Medium => LOD_MEDIUM_VOXEL_SIZE,
-            LodLevel::Low => LOD_LOW_VOXEL_SIZE,
+            LodLevel::Lod0 => 0.25,
+            LodLevel::Lod1 => 0.5,
+            LodLevel::Lod2 => 1.0,
+            LodLevel::Lod3 => 2.0,
+            LodLevel::Lod4 => 4.0,
             LodLevel::None => 0.0,
         }
     }
 
     fn chunks_per_edge(&self) -> usize {
         match self {
-            LodLevel::High => 4,   // 4×4 = 16 chunks
-            LodLevel::Medium => 2, // 2×2 = 4 chunks
-            LodLevel::Low => 1,    // 1 chunk
+            LodLevel::Lod0 => 4,  // 4×4 = 16 chunks
+            LodLevel::Lod1 => 2,  // 2×2 = 4 chunks
+            LodLevel::Lod2 => 1,  // 1 chunk
+            LodLevel::Lod3 => 1,  // 1 chunk
+            LodLevel::Lod4 => 1,  // 1 chunk
             LodLevel::None => 0,
         }
     }
 
     fn color(&self) -> Color {
         match self {
-            LodLevel::High => Color::srgb(0.3, 0.7, 0.2),   // Green
-            LodLevel::Medium => Color::srgb(0.2, 0.6, 0.8), // Blue
-            LodLevel::Low => Color::srgb(0.7, 0.4, 0.2),    // Brown
+            LodLevel::Lod0 => Color::srgb(0.1, 0.8, 0.1),   // Bright green
+            LodLevel::Lod1 => Color::srgb(0.3, 0.7, 0.2),   // Green
+            LodLevel::Lod2 => Color::srgb(0.2, 0.6, 0.8),   // Blue
+            LodLevel::Lod3 => Color::srgb(0.6, 0.4, 0.2),   // Light brown
+            LodLevel::Lod4 => Color::srgb(0.7, 0.3, 0.1),   // Dark brown
             LodLevel::None => Color::BLACK,
         }
     }
@@ -186,7 +217,7 @@ fn update_lod(
     let camera_region_z = (camera_pos.z / REGION_SIZE).floor() as i32;
 
     // Check regions in a radius around camera
-    let check_radius = ((LOD_MEDIUM_DISTANCE + 50.0 + HYSTERESIS_BUFFER) / REGION_SIZE).ceil() as i32 + 1;
+    let check_radius = ((LOD_4_DISTANCE + HYSTERESIS_BUFFER) / REGION_SIZE).ceil() as i32 + 1;
 
     let mut desired_regions: HashMap<RegionCoord, LodLevel> = HashMap::new();
 
@@ -393,29 +424,41 @@ fn debug_ui(
             .map(|(_, entities)| entities.len())
             .sum();
 
-        let high_count = chunk_manager
+        let lod0_count = chunk_manager
             .active_regions
             .values()
-            .filter(|(lod, _)| *lod == LodLevel::High)
+            .filter(|(lod, _)| *lod == LodLevel::Lod0)
             .count();
 
-        let medium_count = chunk_manager
+        let lod1_count = chunk_manager
             .active_regions
             .values()
-            .filter(|(lod, _)| *lod == LodLevel::Medium)
+            .filter(|(lod, _)| *lod == LodLevel::Lod1)
             .count();
 
-        let low_count = chunk_manager
+        let lod2_count = chunk_manager
             .active_regions
             .values()
-            .filter(|(lod, _)| *lod == LodLevel::Low)
+            .filter(|(lod, _)| *lod == LodLevel::Lod2)
+            .count();
+
+        let lod3_count = chunk_manager
+            .active_regions
+            .values()
+            .filter(|(lod, _)| *lod == LodLevel::Lod3)
+            .count();
+
+        let lod4_count = chunk_manager
+            .active_regions
+            .values()
+            .filter(|(lod, _)| *lod == LodLevel::Lod4)
             .count();
 
         info!(
-            "Pos: ({:.1}, {:.1}, {:.1}) | Regions: {} (H:{} M:{} L:{}) | Chunks: {}",
+            "Pos: ({:.1}, {:.1}, {:.1}) | Regions: {} (L0:{} L1:{} L2:{} L3:{} L4:{}) | Chunks: {}",
             camera_pos.x, camera_pos.y, camera_pos.z,
             chunk_manager.active_regions.len(),
-            high_count, medium_count, low_count,
+            lod0_count, lod1_count, lod2_count, lod3_count, lod4_count,
             total_chunks
         );
     }
