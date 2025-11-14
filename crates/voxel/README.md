@@ -137,6 +137,16 @@ This voxel system aims to capture the key characteristics that make Enshrouded's
 - Support for multiple material types and textures
 - Advanced lighting integration with Bevy's rendering pipeline
 
+## Module Organization
+
+The voxel crate is organized into the following modules:
+
+- **`chunk`** - Core voxel and chunk data structures (`Chunk`, `Voxel`, `VoxelType`)
+- **`meshing`** - Greedy meshing algorithm for efficient voxel-to-mesh conversion
+- **`atlas`** - Texture atlas generation for voxel materials
+- **`lod`** - Level of Detail system with `LodLevel` and `ChunkManager`
+- **`terrain`** - Procedural terrain generation utilities (`terrain_height`)
+
 ## Current Implementation Status
 
 ### ✅ Completed Features
@@ -149,16 +159,21 @@ This voxel system aims to capture the key characteristics that make Enshrouded's
 - Continuous terrain generation across chunk boundaries
 
 **Level of Detail (LOD) System:**
+- 5 LOD levels with exponential voxel size scaling (0.25m → 4.0m)
+- Distance-based LOD transitions with hysteresis to prevent flickering
+- `ChunkManager` resource for tracking active regions and their LOD levels
+- Region-based chunk organization for efficient loading/unloading
 - World-space coordinate system for scale-independent terrain
-- Dynamic voxel sizing for LOD levels (0.25m to 4m+)
-- Chunk count scaling (1 → 4 → 16 chunks for same world area)
-- Octree-ready architecture for planet-scale rendering
 
 **Working Examples:**
-- `test_terrain_gen.rs` - Multi-chunk terrain with texture atlas (crates/example/src/bin/test_terrain_gen.rs:1)
-- `test_multi_scale_terrain.rs` - LOD demonstration with chunk scaling (crates/example/src/bin/test_multi_scale_terrain.rs:1)
-- `test_complex_chunks.rs` - Greedy meshing validation
-- `test_chunk_gaps.rs` - Chunk boundary testing
+
+Run examples with: `cargo run --example <name> -p voxel`
+
+- **`multi_chunk_terrain`** - 4×4 grid terrain demonstrating chunk boundaries
+- **`lod_comparison`** - Side-by-side view of 3 LOD levels (1, 4, and 16 chunks)
+- **`dynamic_lod`** - Real-time LOD transitions based on camera distance
+- **`chunk_boundaries`** - Visual test for chunk edge alignment
+- **`meshing_validation`** - Greedy meshing stress test with 8 different voxel patterns
 
 ### 🚧 In Progress
 
@@ -230,13 +245,15 @@ Higher LOD requires exponentially more chunks for the same coverage:
 
 This creates a natural performance gradient: only pay the cost of many chunks when the player is close enough to see the detail.
 
-### Example: test_multi_scale_terrain.rs
+### Example: lod_comparison
 
-See `crates/example/src/bin/test_multi_scale_terrain.rs` for a complete working example that demonstrates:
+See `crates/voxel/examples/lod_comparison.rs` for a complete working example that demonstrates:
 - Three LOD levels side-by-side
 - Same world area (32m × 32m) at each level
 - Chunk count scaling (1 → 4 → 16)
 - Consistent terrain heights across all LOD levels
+
+Run with: `cargo run --example lod_comparison -p voxel`
 
 ## Research Areas for Future Investigation
 

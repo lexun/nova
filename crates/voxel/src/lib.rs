@@ -24,11 +24,42 @@
 //!
 //! ## Module Organization
 //!
-//! - `chunk`: Core voxel and chunk data structures
-//! - `meshing`: Greedy meshing algorithm for efficient voxel-to-mesh conversion
-//! - `atlas`: Texture atlas generation for voxel materials
-//! - `lod`: Level of Detail system for dynamic terrain resolution
-//! - `terrain`: Procedural terrain generation utilities
+//! - [`chunk`]: Core voxel and chunk data structures ([`Chunk`], [`Voxel`], [`VoxelType`])
+//! - [`meshing`]: Greedy meshing algorithm for efficient voxel-to-mesh conversion
+//! - [`atlas`]: Texture atlas generation for voxel materials
+//! - [`lod`]: Level of Detail system ([`lod::LodLevel`], [`lod::ChunkManager`])
+//! - [`terrain`]: Procedural terrain generation utilities ([`terrain::terrain_height`])
+//!
+//! ## Examples
+//!
+//! The crate includes several examples demonstrating different aspects of the voxel system:
+//!
+//! ```bash
+//! # Multi-chunk terrain with chunk boundaries
+//! cargo run --example multi_chunk_terrain -p voxel
+//!
+//! # Side-by-side LOD comparison (1, 4, and 16 chunks)
+//! cargo run --example lod_comparison -p voxel
+//!
+//! # Dynamic LOD transitions based on camera distance
+//! cargo run --example dynamic_lod -p voxel
+//!
+//! # Greedy meshing validation with 8 test patterns
+//! cargo run --example meshing_validation -p voxel
+//! ```
+//!
+//! ## Level of Detail (LOD)
+//!
+//! The LOD system provides 5 levels with exponential voxel size scaling:
+//!
+//! - **LOD 0** (0-35m): 0.25m voxels, 16 chunks per 32m² region (highest detail)
+//! - **LOD 1** (35-75m): 0.5m voxels, 4 chunks per region
+//! - **LOD 2** (75-150m): 1.0m voxels, 1 chunk per region
+//! - **LOD 3** (150-300m): 2.0m voxels, 1 chunk per region
+//! - **LOD 4** (>300m): 4.0m voxels, 1 chunk per region (lowest detail)
+//!
+//! Distance-based transitions use hysteresis to prevent flickering. See [`lod::LodLevel`]
+//! for details on distance thresholds and [`lod::ChunkManager`] for region management.
 
 use bevy::prelude::*;
 

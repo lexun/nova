@@ -19,14 +19,21 @@ The project is organized as a Rust workspace with modular, reusable components:
 ```
 nova/
 └── crates/                      # All engine components and examples
-    ├── voxel/                   # Voxel system (Enshrouded-style)
-    ├── procgen/                 # Procedural generation (No Man's Sky-style)
-    ├── networking/              # Multiplayer & server meshing (Star Citizen-style)
-    ├── physics/                 # Physics integration
-    ├── rendering/               # Rendering optimizations
-    ├── engine/                  # Integration layer that combines all components
-    └── example/                 # Example/testing application
+    ├── voxel/                   # Voxel system with LOD and terrain generation
+    ├── engine/                  # Integration layer (Bevy app setup, camera, etc.)
+    └── example/                 # Multi-system integration examples
 ```
+
+### Voxel System
+
+The voxel crate provides:
+- **5-level LOD system** with dynamic terrain resolution (0.25m to 4m voxels)
+- **Greedy meshing** for efficient chunk rendering
+- **World-space terrain generation** ensuring consistency across LOD levels
+- **Region-based chunk management** for streaming large worlds
+- **Texture atlas system** for material rendering
+
+See `crates/voxel/README.md` for detailed documentation.
 
 ### Design Principles
 
@@ -69,8 +76,38 @@ cd nova
 # Allow direnv to load the development environment
 direnv allow
 
-# Run the example application
+# Run the basic example application
 cargo run -p example
+```
+
+## Examples
+
+The project includes several examples demonstrating different aspects of the voxel system:
+
+### Voxel System Examples
+
+```bash
+# Multi-chunk terrain with chunk boundaries
+cargo run --example multi_chunk_terrain -p voxel
+
+# Side-by-side LOD comparison (1, 4, and 16 chunks)
+cargo run --example lod_comparison -p voxel
+
+# Dynamic LOD transitions based on camera distance
+cargo run --example dynamic_lod -p voxel
+
+# Chunk boundary alignment test
+cargo run --example chunk_boundaries -p voxel
+
+# Greedy meshing validation with 8 test patterns
+cargo run --example meshing_validation -p voxel
+```
+
+### Multi-System Examples
+
+```bash
+# Planet with spherical chunk distribution (experimental)
+cargo run --bin planet_chunk_sphere -p example
 ```
 
 ## Development
