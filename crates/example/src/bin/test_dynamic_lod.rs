@@ -163,8 +163,8 @@ impl LodLevel {
 
 #[derive(Component)]
 struct RegionChunks {
-    region: RegionCoord,
-    lod: LodLevel,
+    _region: RegionCoord,
+    _lod: LodLevel,
 }
 
 #[derive(Resource, Default)]
@@ -337,7 +337,7 @@ fn spawn_region(
                     MeshMaterial3d(material.clone()),
                     Transform::from_translation(position),
                     Wireframe,
-                    RegionChunks { region, lod },
+                    RegionChunks { _region: region, _lod: lod },
                 ))
                 .id();
 
