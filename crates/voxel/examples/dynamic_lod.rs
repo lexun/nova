@@ -27,19 +27,13 @@ use engine::{FlyCameraController, FlyCameraPlugin};
 use std::collections::HashMap;
 use voxel::{
     Chunk, Voxel, VoxelType, CHUNK_SIZE,
-    lod::{LodLevel, LOD_4_DISTANCE, HYSTERESIS_BUFFER},
+    lod::{LodLevel, LOD_4_DISTANCE, HYSTERESIS_BUFFER, ChunkManager, RegionCoord},
     terrain::terrain_height,
 };
 
 // World configuration
 const WORLD_SIZE: f32 = 256.0; // 256m × 256m world
 const REGION_SIZE: f32 = 32.0; // Each region is 32m × 32m
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct RegionCoord {
-    x: i32,
-    z: i32,
-}
 
 // Example-specific extension trait for LodLevel colors
 trait LodLevelExt {
@@ -63,12 +57,6 @@ impl LodLevelExt for LodLevel {
 struct RegionChunks {
     _region: RegionCoord,
     _lod: LodLevel,
-}
-
-#[derive(Resource, Default)]
-struct ChunkManager {
-    // Track which regions are loaded and at what LOD
-    active_regions: HashMap<RegionCoord, (LodLevel, Vec<Entity>)>,
 }
 
 fn setup_scene(mut commands: Commands) {
@@ -143,8 +131,7 @@ fn update_lod(
 
             // Get current LOD for this region (if any)
             let current_lod = chunk_manager
-                .active_regions
-                .get(&region)
+                .get_region(region)
                 .map(|(lod, _)| *lod)
                 .unwrap_or(LodLevel::None);
 
@@ -159,7 +146,7 @@ fn update_lod(
 
     // Despawn regions that are no longer needed or need LOD change
     let mut regions_to_remove = Vec::new();
-    for (region, (current_lod, entities)) in chunk_manager.active_regions.iter() {
+    for (region, current_lod, entities) in chunk_manager.regions_with_data() {
         let needs_update = match desired_regions.get(region) {
             Some(desired_lod) => *desired_lod != *current_lod,
             None => true, // Region no longer visible
@@ -175,12 +162,12 @@ fn update_lod(
     }
 
     for region in regions_to_remove {
-        chunk_manager.active_regions.remove(&region);
+        chunk_manager.remove_region(region);
     }
 
     // Spawn new regions or update existing ones
     for (region, desired_lod) in desired_regions {
-        if !chunk_manager.active_regions.contains_key(&region) {
+        if !chunk_manager.has_region(region) {
             // Spawn new region at desired LOD
             let entities = spawn_region(
                 &mut commands,
@@ -189,9 +176,7 @@ fn update_lod(
                 region,
                 desired_lod,
             );
-            chunk_manager
-                .active_regions
-                .insert(region, (desired_lod, entities));
+            chunk_manager.insert_region(region, desired_lod, entities);
         }
     }
 }
@@ -299,45 +284,39 @@ fn debug_ui(
         let camera_pos = camera_transform.translation;
 
         let total_chunks: usize = chunk_manager
-            .active_regions
-            .values()
-            .map(|(_, entities)| entities.len())
+            .regions_with_data()
+            .map(|(_, _, entities)| entities.len())
             .sum();
 
         let lod0_count = chunk_manager
-            .active_regions
-            .values()
-            .filter(|(lod, _)| *lod == LodLevel::Lod0)
+            .regions_with_data()
+            .filter(|(_, lod, _)| **lod == LodLevel::Lod0)
             .count();
 
         let lod1_count = chunk_manager
-            .active_regions
-            .values()
-            .filter(|(lod, _)| *lod == LodLevel::Lod1)
+            .regions_with_data()
+            .filter(|(_, lod, _)| **lod == LodLevel::Lod1)
             .count();
 
         let lod2_count = chunk_manager
-            .active_regions
-            .values()
-            .filter(|(lod, _)| *lod == LodLevel::Lod2)
+            .regions_with_data()
+            .filter(|(_, lod, _)| **lod == LodLevel::Lod2)
             .count();
 
         let lod3_count = chunk_manager
-            .active_regions
-            .values()
-            .filter(|(lod, _)| *lod == LodLevel::Lod3)
+            .regions_with_data()
+            .filter(|(_, lod, _)| **lod == LodLevel::Lod3)
             .count();
 
         let lod4_count = chunk_manager
-            .active_regions
-            .values()
-            .filter(|(lod, _)| *lod == LodLevel::Lod4)
+            .regions_with_data()
+            .filter(|(_, lod, _)| **lod == LodLevel::Lod4)
             .count();
 
         info!(
             "Pos: ({:.1}, {:.1}, {:.1}) | Regions: {} (L0:{} L1:{} L2:{} L3:{} L4:{}) | Chunks: {}",
             camera_pos.x, camera_pos.y, camera_pos.z,
-            chunk_manager.active_regions.len(),
+            chunk_manager.region_count(),
             lod0_count, lod1_count, lod2_count, lod3_count, lod4_count,
             total_chunks
         );
