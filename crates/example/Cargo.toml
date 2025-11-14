@@ -12,10 +12,6 @@ path = "src/main.rs"
 name = "planet_chunk_sphere"
 path = "src/bin/planet_chunk_sphere.rs"
 
-[[bin]]
-name = "test_complex_chunks"
-path = "src/bin/test_complex_chunks.rs"
-
 [dependencies]
 engine = { version = "0.1.0", path = "../engine" }
 voxel = { version = "0.1.0", path = "../voxel" }
