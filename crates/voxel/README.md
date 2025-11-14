@@ -137,40 +137,115 @@ This voxel system aims to capture the key characteristics that make Enshrouded's
 - Support for multiple material types and textures
 - Advanced lighting integration with Bevy's rendering pipeline
 
-## Implementation Roadmap
+## Current Implementation Status
 
-### Phase 1: Foundation
+### ✅ Completed Features
 
-- Basic voxel data structures (`VoxelType`, `Chunk`, `VoxelWorld`)
-- Simple greedy meshing for performance baseline
-- Integration with existing 3D scene
+**Core Voxel System:**
+- Chunk-based world representation (32×32×32 voxel chunks)
+- Multiple voxel types (Stone, Dirt, Grass, Sand, Water, Air)
+- Greedy meshing algorithm for efficient mesh generation
+- Texture atlas system for material rendering
+- Continuous terrain generation across chunk boundaries
 
-### Phase 2: Smooth Rendering
+**Level of Detail (LOD) System:**
+- World-space coordinate system for scale-independent terrain
+- Dynamic voxel sizing for LOD levels (0.25m to 4m+)
+- Chunk count scaling (1 → 4 → 16 chunks for same world area)
+- Octree-ready architecture for planet-scale rendering
 
-- Implement Surface Nets or basic Dual Contouring
-- Optimize mesh generation performance
-- Add multiple voxel material types
+**Working Examples:**
+- `test_terrain_gen.rs` - Multi-chunk terrain with texture atlas (crates/example/src/bin/test_terrain_gen.rs:1)
+- `test_multi_scale_terrain.rs` - LOD demonstration with chunk scaling (crates/example/src/bin/test_multi_scale_terrain.rs:1)
+- `test_complex_chunks.rs` - Greedy meshing validation
+- `test_chunk_gaps.rs` - Chunk boundary testing
 
-### Phase 3: Interaction System
+### 🚧 In Progress
 
+**Planet Rendering:**
+- Octree-based LOD management for spherical worlds
+- Seamless space-to-surface transitions
+- Chunk subdivision strategies for curved surfaces
+
+### 📋 Planned Features
+
+**Advanced Rendering:**
+- Surface Nets or Dual Contouring for smooth organic terrain
+- Advanced lighting and material blending
+- Ambient occlusion for depth perception
+
+**Interaction System:**
 - Real-time voxel placement and removal
 - Mesh regeneration on modification
-- Basic structural integrity simulation
+- Structural integrity simulation (configurable modes)
 
-### Phase 4: Advanced Features
+**Performance Optimization:**
+- Frustum culling
+- Aggressive LOD culling for distant chunks
+- Async chunk generation and meshing
 
-- Complex destruction physics
-- Advanced surface extraction algorithms
-- Performance optimization and LOD systems
+## How LOD Works
+
+The voxel system uses **world-space coordinates** as the foundation for scale-independent terrain generation. This ensures terrain consistency across all LOD levels.
+
+### Key Principle: Same World Area, Different Resolution
+
+Instead of showing the same number of chunks at different voxel sizes (which causes height quantization), we show the **same physical world area** with different numbers of chunks:
+
+```rust
+// For a 32m × 32m world area:
+// Low detail:    1 chunk  with 4.0m voxels (blocky, fast)
+// Medium detail: 4 chunks with 1.0m voxels (smooth, moderate)
+// High detail:   16 chunks with 0.25m voxels (very smooth, expensive)
+
+let chunk_world_size = CHUNK_SIZE as f32 * voxel_size;
+let chunks_needed = (WORLD_AREA_SIZE / chunk_world_size).ceil();
+```
+
+### World-Space Terrain Generation
+
+Procedural generation functions operate in **world-space meters**, not voxel coordinates:
+
+```rust
+fn terrain_height(world_x: f32, world_z: f32) -> f32 {
+    let base = 2.0;
+    let hills = (world_x * 0.1).sin() * (world_z * 0.1).cos() * 4.0;
+    base + hills  // Returns height in meters
+}
+
+// When generating voxels:
+let world_x = world_offset_x + (local_x as f32 * voxel_size);
+let height_meters = terrain_height(world_x, world_z);
+let height_voxels = (height_meters / voxel_size) as usize;
+```
+
+This ensures that at world position (16.0, 16.0), the terrain height is **identical** whether using 4m voxels or 0.25m voxels. Only the vertical resolution differs.
+
+### Chunk Count Scaling
+
+Higher LOD requires exponentially more chunks for the same coverage:
+
+- **4× better resolution** = 16× more chunks
+- **2× better resolution** = 4× more chunks
+
+This creates a natural performance gradient: only pay the cost of many chunks when the player is close enough to see the detail.
+
+### Example: test_multi_scale_terrain.rs
+
+See `crates/example/src/bin/test_multi_scale_terrain.rs` for a complete working example that demonstrates:
+- Three LOD levels side-by-side
+- Same world area (32m × 32m) at each level
+- Chunk count scaling (1 → 4 → 16)
+- Consistent terrain heights across all LOD levels
 
 ## Research Areas for Future Investigation
 
-1. **Advanced Meshing Algorithms**: Deeper dive into Dual Contouring implementation
+1. **Advanced Meshing Algorithms**: Dual Contouring for smooth terrain while preserving sharp building edges
 2. **Structural Physics**: Integration with physics engines for realistic destruction
 3. **Networking**: Efficient synchronization of voxel modifications in multiplayer
-4. **Procedural Generation**: Integration with terrain generation systems
-5. **Performance Optimization**: Advanced culling and LOD techniques
-6. **Material System**: Support for complex texturing and material blending
+4. **Procedural Generation**: Noise-based terrain (Perlin/Simplex) for production-quality worlds
+5. **Performance Optimization**: Frustum culling, async generation, occlusion culling
+6. **Material System**: Material blending, triplanar mapping, advanced texturing
 
 ## References and Further Reading
 
