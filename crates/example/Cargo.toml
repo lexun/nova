@@ -13,16 +13,8 @@ name = "planet_chunk_sphere"
 path = "src/bin/planet_chunk_sphere.rs"
 
 [[bin]]
-name = "test_chunk_gaps"
-path = "src/bin/test_chunk_gaps.rs"
-
-[[bin]]
 name = "test_complex_chunks"
 path = "src/bin/test_complex_chunks.rs"
-
-[[bin]]
-name = "test_terrain_gen"
-path = "src/bin/test_terrain_gen.rs"
 
 [dependencies]
 engine = { version = "0.1.0", path = "../engine" }
