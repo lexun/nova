@@ -1,42 +1,18 @@
-use bevy::{
-    input::mouse::MouseMotion,
-    prelude::*,
-    window::CursorGrabMode,
-};
+use bevy::prelude::*;
 use bevy_brp_extras::BrpExtrasPlugin;
+use engine::{FlyCameraController, FlyCameraPlugin};
 use voxel::{Chunk, Voxel, VoxelType};
-
-#[derive(Component)]
-struct CameraController {
-    move_speed: f32,
-    sensitivity: f32,
-}
-
-impl Default for CameraController {
-    fn default() -> Self {
-        Self {
-            move_speed: 5.0,
-            sensitivity: 0.003,
-        }
-    }
-}
 
 fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut cursor_options: Query<&mut bevy::window::CursorOptions>,
 ) {
-    // Setup cursor capture
-    if let Ok(mut cursor) = cursor_options.single_mut() {
-        cursor.grab_mode = CursorGrabMode::Locked;
-        cursor.visible = false;
-    }
     // Camera
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
-        CameraController::default(),
+        FlyCameraController::new(5.0, 0.003),
     ));
 
     // Human scale reference (1.8m tall person)
@@ -138,61 +114,14 @@ fn setup_scene(
     info!("Dirt foundation at (8-12, 1-2, 8-12)");
 }
 
-fn camera_movement(
-    time: Res<Time>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_motion: MessageReader<MouseMotion>,
-    mut camera_query: Query<(&mut Transform, &CameraController), With<Camera3d>>,
-) {
-    for (mut transform, controller) in camera_query.iter_mut() {
-        let mut velocity = Vec3::ZERO;
-        let forward = -*transform.local_z();
-        let right = *transform.local_x();
-        let up = Vec3::Y;
-
-        // WASD movement
-        if keyboard_input.pressed(KeyCode::KeyW) {
-            velocity += forward;
-        }
-        if keyboard_input.pressed(KeyCode::KeyS) {
-            velocity -= forward;
-        }
-        if keyboard_input.pressed(KeyCode::KeyA) {
-            velocity -= right;
-        }
-        if keyboard_input.pressed(KeyCode::KeyD) {
-            velocity += right;
-        }
-        if keyboard_input.pressed(KeyCode::KeyQ) {
-            velocity -= up;
-        }
-        if keyboard_input.pressed(KeyCode::KeyE) {
-            velocity += up;
-        }
-
-        velocity = velocity.normalize_or_zero();
-        transform.translation += velocity * controller.move_speed * time.delta_secs();
-
-        // Mouse look (captured)
-        for mouse_event in mouse_motion.read() {
-            let yaw = -mouse_event.delta.x * controller.sensitivity;
-            let pitch = -mouse_event.delta.y * controller.sensitivity;
-
-            transform.rotate_y(yaw);
-            transform.rotate_local_x(pitch);
-        }
-    }
-}
-
 fn main() {
     let mut app = engine::create_app();
 
     // MCP Server Integration - Enable autonomous AI development and testing
     // BrpExtrasPlugin includes RemoteHttpPlugin + extras (screenshots, keyboard input, window control)
-    app.add_plugins(BrpExtrasPlugin);  // Bevy Remote Protocol (port 15702)
+    app.add_plugins((BrpExtrasPlugin, FlyCameraPlugin));  // Bevy Remote Protocol (port 15702)
     // Note: bevy_debugger_mcp is an external MCP server (doesn't require a Bevy plugin)
 
     app.add_systems(Startup, setup_scene);
-    app.add_systems(Update, camera_movement);
     app.run();
 }

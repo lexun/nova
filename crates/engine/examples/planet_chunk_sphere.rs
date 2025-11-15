@@ -23,32 +23,14 @@
 //!
 //! See nova-v6e for alternative approaches being considered.
 
-use bevy::{
-    input::mouse::MouseMotion,
-    prelude::*,
-    window::CursorGrabMode,
-};
+use bevy::prelude::*;
 use bevy_brp_extras::BrpExtrasPlugin;
+use engine::{FlyCameraController, FlyCameraPlugin};
 use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
 
 const VOXEL_SIZE: f32 = 0.25; // 25cm voxels
 const PLANET_RADIUS: f32 = 500.0; // 500m radius = 1km diameter
 const CHUNKS_PER_FACE_EDGE: usize = 4; // 4x4 chunks per cube face (96 total) - reduced for testing
-
-#[derive(Component)]
-struct CameraController {
-    move_speed: f32,
-    sensitivity: f32,
-}
-
-impl Default for CameraController {
-    fn default() -> Self {
-        Self {
-            move_speed: 50.0, // Faster for planet scale
-            sensitivity: 0.003,
-        }
-    }
-}
 
 /// Maps a position on a cube face to a normalized direction on a sphere
 fn cube_to_sphere(face: usize, u: f32, v: f32) -> Vec3 {
@@ -85,20 +67,13 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut cursor_options: Query<&mut bevy::window::CursorOptions>,
 ) {
-    // Setup cursor capture
-    if let Ok(mut cursor) = cursor_options.single_mut() {
-        cursor.grab_mode = CursorGrabMode::Locked;
-        cursor.visible = false;
-    }
-
     // Camera positioned to view planet from distance
     let camera_distance = PLANET_RADIUS * 2.5; // 1.25km from center
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(camera_distance, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        CameraController::default(),
+        FlyCameraController::new(50.0, 0.003), // Faster movement for planet scale
     ));
 
     // Sun
@@ -247,60 +222,13 @@ fn generate_planet_chunk(face: usize, chunk_u: usize, chunk_v: usize) -> Chunk {
     chunk
 }
 
-fn camera_movement(
-    time: Res<Time>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_motion: MessageReader<MouseMotion>,
-    mut camera_query: Query<(&mut Transform, &CameraController), With<Camera3d>>,
-) {
-    for (mut transform, controller) in camera_query.iter_mut() {
-        let mut velocity = Vec3::ZERO;
-        let forward = -*transform.local_z();
-        let right = *transform.local_x();
-        let up = *transform.local_y();
-
-        // WASD movement
-        if keyboard_input.pressed(KeyCode::KeyW) {
-            velocity += forward;
-        }
-        if keyboard_input.pressed(KeyCode::KeyS) {
-            velocity -= forward;
-        }
-        if keyboard_input.pressed(KeyCode::KeyA) {
-            velocity -= right;
-        }
-        if keyboard_input.pressed(KeyCode::KeyD) {
-            velocity += right;
-        }
-        if keyboard_input.pressed(KeyCode::KeyQ) {
-            velocity -= up;
-        }
-        if keyboard_input.pressed(KeyCode::KeyE) {
-            velocity += up;
-        }
-
-        velocity = velocity.normalize_or_zero();
-        transform.translation += velocity * controller.move_speed * time.delta_secs();
-
-        // Mouse look
-        for mouse_event in mouse_motion.read() {
-            let yaw = -mouse_event.delta.x * controller.sensitivity;
-            let pitch = -mouse_event.delta.y * controller.sensitivity;
-
-            transform.rotate_y(yaw);
-            transform.rotate_local_x(pitch);
-        }
-    }
-}
-
 fn main() {
     let mut app = engine::create_app();
 
     // Plugins
-    app.add_plugins(BrpExtrasPlugin);
+    app.add_plugins((BrpExtrasPlugin, FlyCameraPlugin));
 
     app.add_systems(Startup, setup_scene);
-    app.add_systems(Update, camera_movement);
 
     app.run();
 }
