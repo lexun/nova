@@ -167,7 +167,7 @@ The voxel crate is organized into the following modules:
 
 **Working Examples:**
 
-Run examples with: `cargo run --example <name> -p voxel`
+Run examples with: `cargo run -p voxel --example <name>`
 
 - **`multi_chunk_terrain`** - 4×4 grid terrain demonstrating chunk boundaries
 - **`lod_comparison`** - Side-by-side view of 3 LOD levels (1, 4, and 16 chunks)
@@ -253,7 +253,7 @@ See `crates/voxel/examples/lod_comparison.rs` for a complete working example tha
 - Chunk count scaling (1 → 4 → 16)
 - Consistent terrain heights across all LOD levels
 
-Run with: `cargo run --example lod_comparison -p voxel`
+Run with: `cargo run -p voxel --example lod_comparison`
 
 ## Research Areas for Future Investigation
 

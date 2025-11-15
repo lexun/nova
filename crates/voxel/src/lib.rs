@@ -36,16 +36,16 @@
 //!
 //! ```bash
 //! # Multi-chunk terrain with chunk boundaries
-//! cargo run --example multi_chunk_terrain -p voxel
+//! cargo run -p voxel --example multi_chunk_terrain
 //!
 //! # Side-by-side LOD comparison (1, 4, and 16 chunks)
-//! cargo run --example lod_comparison -p voxel
+//! cargo run -p voxel --example lod_comparison
 //!
 //! # Dynamic LOD transitions based on camera distance
-//! cargo run --example dynamic_lod -p voxel
+//! cargo run -p voxel --example dynamic_lod
 //!
 //! # Greedy meshing validation with 8 test patterns
-//! cargo run --example meshing_validation -p voxel
+//! cargo run -p voxel --example meshing_validation
 //! ```
 //!
 //! ## Level of Detail (LOD)

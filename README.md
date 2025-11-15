@@ -76,7 +76,7 @@ cd nova
 direnv allow
 
 # Run the basic example
-cargo run --example basic -p engine
+cargo run -p engine --example basic
 ```
 
 ## Examples
@@ -87,29 +87,29 @@ The project includes several examples demonstrating different aspects of the sys
 
 ```bash
 # Multi-chunk terrain with chunk boundaries
-cargo run --example multi_chunk_terrain -p voxel
+cargo run -p voxel --example multi_chunk_terrain
 
 # Side-by-side LOD comparison (1, 4, and 16 chunks)
-cargo run --example lod_comparison -p voxel
+cargo run -p voxel --example lod_comparison
 
 # Dynamic LOD transitions based on camera distance
-cargo run --example dynamic_lod -p voxel
+cargo run -p voxel --example dynamic_lod
 
 # Chunk boundary alignment test
-cargo run --example chunk_boundaries -p voxel
+cargo run -p voxel --example chunk_boundaries
 
 # Greedy meshing validation with 8 test patterns
-cargo run --example meshing_validation -p voxel
+cargo run -p voxel --example meshing_validation
 ```
 
 ### Integration Examples
 
 ```bash
 # Basic voxel scene with camera controls
-cargo run --example basic -p engine
+cargo run -p engine --example basic
 
 # Planet with spherical chunk distribution (experimental)
-cargo run --example planet_chunk_sphere -p engine
+cargo run -p engine --example planet_chunk_sphere
 ```
 
 ## Development
