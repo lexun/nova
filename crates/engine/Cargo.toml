@@ -6,3 +6,5 @@ authors.workspace = true
 
 [dependencies]
 bevy = "0.17.2"
+bevy_brp_extras = "0.17.0"
+voxel = { version = "0.1.0", path = "../voxel" }

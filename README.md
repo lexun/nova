@@ -20,8 +20,7 @@ The project is organized as a Rust workspace with modular, reusable components:
 nova/
 └── crates/                      # All engine components and examples
     ├── voxel/                   # Voxel system with LOD and terrain generation
-    ├── engine/                  # Integration layer (Bevy app setup, camera, etc.)
-    └── example/                 # Multi-system integration examples
+    └── engine/                  # Integration layer (Bevy app setup, camera, etc.)
 ```
 
 ### Voxel System
@@ -76,13 +75,13 @@ cd nova
 # Allow direnv to load the development environment
 direnv allow
 
-# Run the basic example application
-cargo run -p example
+# Run the basic example
+cargo run --example basic -p engine
 ```
 
 ## Examples
 
-The project includes several examples demonstrating different aspects of the voxel system:
+The project includes several examples demonstrating different aspects of the system:
 
 ### Voxel System Examples
 
@@ -103,16 +102,18 @@ cargo run --example chunk_boundaries -p voxel
 cargo run --example meshing_validation -p voxel
 ```
 
-### Multi-System Examples
+### Integration Examples
 
 ```bash
+# Basic voxel scene with camera controls
+cargo run --example basic -p engine
+
 # Planet with spherical chunk distribution (experimental)
-cargo run --bin planet_chunk_sphere -p example
+cargo run --example planet_chunk_sphere -p engine
 ```
 
 ## Development
 
 This is an experimental project exploring cutting-edge game development
 techniques for galaxy-scale voxel worlds. Each engine component can be developed
-and tested independently, with the `example` application serving as an
-integration testbed.
+and tested independently.
