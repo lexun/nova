@@ -9,13 +9,14 @@
 //! Run with: cargo run -p voxel --example visual_test
 
 use bevy::prelude::*;
+use bevy_brp_extras::BrpExtrasPlugin;
 use engine::{FlyCameraController, FlyCameraPlugin};
 use voxel::{VoxelTerrain, VoxelTerrainPlugin};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins((VoxelTerrainPlugin, FlyCameraPlugin))
+        .add_plugins((BrpExtrasPlugin, VoxelTerrainPlugin, FlyCameraPlugin))
         .add_systems(Startup, setup)
         .run();
 }
