@@ -58,6 +58,9 @@
 //! # Simple high-level API (recommended starting point)
 //! cargo run -p voxel --example simple_terrain
 //!
+//! # Large-scale terrain with production LOD settings
+//! cargo run -p voxel --example large_scale_terrain --release
+//!
 //! # Multi-chunk terrain with chunk boundaries
 //! cargo run -p voxel --example multi_chunk_terrain
 //!
