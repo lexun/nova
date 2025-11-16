@@ -40,6 +40,6 @@ pub mod generator;
 
 // Re-export terrain generation types
 pub use generator::{
-    terrain_height, DebugPattern, DebugPatternGenerator, DefaultTerrainGenerator,
-    FlatTerrainGenerator, TerrainGenerator,
+    terrain_height, CaveTerrainGenerator, DebugPattern, DebugPatternGenerator,
+    DefaultTerrainGenerator, FlatTerrainGenerator, TerrainGenerator,
 };

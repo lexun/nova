@@ -105,6 +105,9 @@ pub use chunk::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
 // Re-export high-level API
 pub use plugin::{VoxelTerrain, VoxelTerrainPlugin};
 
+// Re-export terrain generators
+pub use terrain::{CaveTerrainGenerator, DefaultTerrainGenerator, TerrainGenerator};
+
 /// Voxel system plugin for Bevy
 pub struct VoxelSystemPlugin;
 

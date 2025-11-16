@@ -280,3 +280,156 @@ impl TerrainGenerator for DebugPatternGenerator {
         chunk
     }
 }
+
+/// 3D terrain generator with caves, tunnels, and overhangs
+///
+/// Uses density-based voxel generation with 3D noise for cave carving.
+/// Unlike heightmap generators, this samples density at every 3D position,
+/// allowing for true 3D features like caves, tunnels, and floating islands.
+#[derive(Debug, Clone)]
+pub struct CaveTerrainGenerator {
+    /// Maximum world size to generate (prevents generating outside intended bounds)
+    pub max_world_size: Option<f32>,
+    /// Cave density threshold (higher = more caves)
+    pub cave_threshold: f32,
+    /// Cave noise frequency (higher = smaller caves)
+    pub cave_frequency: f32,
+}
+
+impl CaveTerrainGenerator {
+    /// Create a new cave terrain generator with default settings
+    pub fn new() -> Self {
+        Self {
+            max_world_size: None,
+            cave_threshold: 0.3,
+            cave_frequency: 0.05,
+        }
+    }
+
+    /// Set a maximum world size boundary
+    pub fn with_max_world_size(mut self, size: f32) -> Self {
+        self.max_world_size = Some(size);
+        self
+    }
+
+    /// Set cave threshold (0.0-1.0, higher = more caves)
+    pub fn with_cave_threshold(mut self, threshold: f32) -> Self {
+        self.cave_threshold = threshold.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Set cave frequency (higher = smaller, more detailed caves)
+    pub fn with_cave_frequency(mut self, frequency: f32) -> Self {
+        self.cave_frequency = frequency;
+        self
+    }
+
+    /// Calculate density at a 3D world position
+    ///
+    /// Returns a value where:
+    /// - density > 0 = solid terrain
+    /// - density <= 0 = air/cave
+    fn density_at(&self, world_pos: Vec3) -> f32 {
+        // Get surface height using existing terrain function
+        let surface_height = terrain_height(world_pos.x, world_pos.z);
+
+        // Base density: positive below surface, negative above
+        let distance_to_surface = surface_height - world_pos.y;
+        let mut density = distance_to_surface;
+
+        // Add cave carving using 3D noise
+        // Use simple 3D sine-based noise for now (could use proper Perlin/Simplex later)
+        let cave_noise = Self::noise_3d(
+            world_pos.x * self.cave_frequency,
+            world_pos.y * self.cave_frequency,
+            world_pos.z * self.cave_frequency,
+        );
+
+        // Carve caves where noise exceeds threshold
+        // Only carve underground (not above surface)
+        if world_pos.y < surface_height - 2.0 {
+            if cave_noise > self.cave_threshold {
+                density -= 10.0; // Strong negative = definite air
+            }
+        }
+
+        density
+    }
+
+    /// Simple 3D noise function using layered sine waves
+    ///
+    /// Returns value in range [-1, 1]
+    fn noise_3d(x: f32, y: f32, z: f32) -> f32 {
+        // Layer multiple sine waves for more organic patterns
+        let n1 = (x * 1.0).sin() * (y * 1.1).cos() * (z * 0.9).sin();
+        let n2 = (x * 2.3 + y * 1.7).sin() * (z * 2.1).cos() * 0.5;
+        let n3 = (x * 4.7 - z * 3.9).cos() * (y * 5.1).sin() * 0.25;
+
+        (n1 + n2 + n3) / 1.75
+    }
+
+    /// Determine voxel type based on depth from surface and material layers
+    fn voxel_type_at(&self, world_pos: Vec3, surface_height: f32) -> VoxelType {
+        let depth_from_surface = surface_height - world_pos.y;
+
+        if depth_from_surface < 0.5 {
+            VoxelType::Grass // Top layer
+        } else if depth_from_surface < 3.0 {
+            VoxelType::Dirt // Few layers of dirt
+        } else {
+            VoxelType::Stone // Deep stone
+        }
+    }
+}
+
+impl Default for CaveTerrainGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TerrainGenerator for CaveTerrainGenerator {
+    fn generate_chunk(&self, world_offset: Vec3, voxel_size: f32) -> Chunk {
+        let mut chunk = Chunk::new();
+
+        for local_x in 0..CHUNK_SIZE {
+            for local_y in 0..CHUNK_SIZE {
+                for local_z in 0..CHUNK_SIZE {
+                    let world_x = world_offset.x + (local_x as f32 * voxel_size);
+                    let world_y = world_offset.y + (local_y as f32 * voxel_size);
+                    let world_z = world_offset.z + (local_z as f32 * voxel_size);
+
+                    let world_pos = Vec3::new(world_x, world_y, world_z);
+
+                    // Skip voxels outside max world size if set
+                    if let Some(max_size) = self.max_world_size {
+                        if world_x >= max_size || world_z >= max_size {
+                            continue;
+                        }
+                    }
+
+                    // Calculate density at this position
+                    let density = self.density_at(world_pos);
+
+                    // Only place voxel if density is positive (solid)
+                    if density > 0.0 {
+                        let surface_height = terrain_height(world_x, world_z);
+                        let voxel_type = self.voxel_type_at(world_pos, surface_height);
+
+                        chunk.set_voxel(
+                            local_x,
+                            local_y,
+                            local_z,
+                            Voxel {
+                                voxel_type,
+                                density: 255,
+                            },
+                        );
+                    }
+                }
+            }
+        }
+
+        chunk
+    }
+}
