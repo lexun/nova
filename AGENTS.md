@@ -86,34 +86,30 @@ Add to MCP config (e.g., `~/.config/claude/config.json`):
 
 Then use `mcp__beads__*` functions instead of CLI commands.
 
-### Managing AI-Generated Planning Documents
+### Planning and Exploration
 
-AI assistants often create planning and design documents during development:
-- PLAN.md, IMPLEMENTATION.md, ARCHITECTURE.md
-- DESIGN.md, CODEBASE_SUMMARY.md, INTEGRATION_PLAN.md
-- TESTING_GUIDE.md, TECHNICAL_DESIGN.md, and similar files
+**Use bd (beads) for ALL planning and exploration work.**
 
-**Best Practice: Use a dedicated directory for these ephemeral files**
+When exploring designs, architectures, or solutions:
 
-**Recommended approach:**
-- Create a `history/` directory in the project root
-- Store ALL AI-generated planning/design docs in `history/`
-- Use lowercase with underscores for document names (e.g., `planet_experiments.md`, not `PLANET_EXPERIMENTS.md`)
-- Keep the repository root clean and focused on permanent project files
-- Only access `history/` when explicitly asked to review past planning
+1. **Create issues in bd** - Use issue notes for detailed analysis (markdown supported)
+2. **Use epics and dependencies** - Structure multi-part explorations
+3. **Close when complete** - Knowledge captured in closed issues
 
-**Example .gitignore entry (optional):**
-```
-# AI planning documents (ephemeral)
-history/
-```
+**DO NOT create planning documents** unless absolutely necessary for immediate collaboration.
 
-**Benefits:**
-- ✅ Clean repository root
-- ✅ Clear separation between ephemeral and permanent documentation
-- ✅ Easy to exclude from version control if desired
-- ✅ Preserves planning history for archeological research
-- ✅ Reduces noise when browsing the project
+If a temporary document is unavoidable:
+- Use `/tmp/nova-planning/` (NOT tracked in git)
+- Delete immediately after capturing in bd
+- Never commit planning documents
+
+**Why bd-only?**
+- ✅ Prevents duplicate tracking systems
+- ✅ Git history shows what was decided AND when
+- ✅ Dependencies show decision relationships
+- ✅ Searchable via `bd list` and `bd show`
+- ✅ Never gets out of sync with code
+- ✅ Clean repository (no orphaned docs)
 
 ### Git Commit Messages
 
@@ -143,15 +139,15 @@ Short, imperative commits create a clean, scannable git history. Each commit sho
 
 ### Important Rules
 
-- ✅ Use bd for ALL task tracking
+- ✅ Use bd for ALL task tracking AND planning
 - ✅ Always use `--json` flag for programmatic use
 - ✅ Link discovered work with `discovered-from` dependencies
 - ✅ Check `bd ready` before asking "what should I work on?"
-- ✅ Store AI planning docs in `history/` directory
+- ✅ Use issue notes for detailed analysis/exploration
 - ✅ Follow git commit message guidelines (imperative, <50 chars)
 - ❌ Do NOT create markdown TODO lists
+- ❌ Do NOT create planning documents (use bd issues)
 - ❌ Do NOT use external issue trackers
 - ❌ Do NOT duplicate tracking systems
-- ❌ Do NOT clutter repo root with planning documents
 
 For more details, see README.md and QUICKSTART.md.
