@@ -24,13 +24,15 @@
 //! Run with: cargo run -p voxel --example texture_test
 
 use bevy::prelude::*;
+use bevy::image::ImageSampler;
+use bevy_brp_extras::BrpExtrasPlugin;
 use engine::{FlyCameraController, FlyCameraPlugin};
 use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(FlyCameraPlugin)
+        .add_plugins((BrpExtrasPlugin, FlyCameraPlugin))
         .add_systems(Startup, setup)
         .run();
 }
@@ -41,12 +43,12 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    // Generate texture atlas with grid overlay for easier visualization
-    let atlas_image = generate_test_atlas();
-    let atlas_texture = images.add(atlas_image);
+    // Generate simple grid texture (not an atlas)
+    let grid_image = generate_grid_texture();
+    let grid_texture = images.add(grid_image);
 
     let material = materials.add(StandardMaterial {
-        base_color_texture: Some(atlas_texture),
+        base_color_texture: Some(grid_texture),
         perceptual_roughness: 0.8,
         ..default()
     });
@@ -157,43 +159,31 @@ fn spawn_test_shape(
     ));
 }
 
-/// Generate test atlas with visible grid pattern
-/// This makes stretching and warping very obvious
-fn generate_test_atlas() -> Image {
+/// Generate simple grid texture that tiles
+fn generate_grid_texture() -> Image {
     use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
     use bevy::asset::RenderAssetUsages;
 
-    const ATLAS_WIDTH: u32 = 256;
-    const ATLAS_HEIGHT: u32 = 64;
-    const MATERIAL_WIDTH: u32 = 64;
+    // Simple 64x64 grid texture that tiles perfectly
+    const SIZE: u32 = 64;
+    const GRID_SIZE: u32 = 8; // Grid lines every 8 pixels
 
-    let mut data = vec![0u8; (ATLAS_WIDTH * ATLAS_HEIGHT * 4) as usize];
+    let mut data = vec![0u8; (SIZE * SIZE * 4) as usize];
 
-    // Fill stone region (material index 3) with grid pattern
-    let stone_start_x = 3 * MATERIAL_WIDTH;
-    let stone_end_x = stone_start_x + MATERIAL_WIDTH;
+    for y in 0..SIZE {
+        for x in 0..SIZE {
+            // Create visible grid lines
+            let is_grid_line = (x % GRID_SIZE == 0) || (y % GRID_SIZE == 0);
 
-    for y in 0..ATLAS_HEIGHT {
-        for x in stone_start_x..stone_end_x {
-            let local_x = x - stone_start_x;
-            let local_y = y;
-
-            // Create visible grid lines every 8 pixels
-            let is_grid_line = (local_x % 8 == 0) || (local_y % 8 == 0);
-
-            let base_gray = 0.5;
             let value = if is_grid_line {
-                base_gray - 0.2 // Dark grid lines
+                0.2 // Dark grid lines
             } else {
-                // Add subtle noise
-                let noise_x = (local_x as f32 * 0.3).sin();
-                let noise_y = (local_y as f32 * 0.3).cos();
-                base_gray + (noise_x * noise_y) * 0.05
+                0.6 // Light background
             };
 
-            let color_u8 = (value.clamp(0.0, 1.0) * 255.0) as u8;
+            let color_u8 = (value * 255.0) as u8;
 
-            let pixel_index = ((y * ATLAS_WIDTH + x) * 4) as usize;
+            let pixel_index = ((y * SIZE + x) * 4) as usize;
             data[pixel_index] = color_u8;
             data[pixel_index + 1] = color_u8;
             data[pixel_index + 2] = color_u8;
@@ -201,27 +191,31 @@ fn generate_test_atlas() -> Image {
         }
     }
 
-    // Fill other materials with simple colors so we can still see them
-    // Air (0) - transparent
-    fill_solid_region(&mut data, 0, [0, 0, 0, 0]);
-    // Grass (1) - green
-    fill_solid_region(&mut data, 1, [76, 153, 51, 255]);
-    // Dirt (2) - brown
-    fill_solid_region(&mut data, 2, [127, 89, 51, 255]);
-
-    Image::new(
+    let mut image = Image::new(
         Extent3d {
-            width: ATLAS_WIDTH,
-            height: ATLAS_HEIGHT,
+            width: SIZE,
+            height: SIZE,
             depth_or_array_layers: 1,
         },
         TextureDimension::D2,
         data,
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
-    )
+    );
+
+    // Set texture to repeat mode so UVs > 1.0 tile the texture
+    use bevy::image::{ImageSamplerDescriptor, ImageAddressMode};
+    image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+        address_mode_u: ImageAddressMode::Repeat,
+        address_mode_v: ImageAddressMode::Repeat,
+        address_mode_w: ImageAddressMode::Repeat,
+        ..default()
+    });
+
+    image
 }
 
+#[allow(dead_code)]
 fn fill_solid_region(data: &mut [u8], material_index: u32, color: [u8; 4]) {
     const ATLAS_WIDTH: u32 = 256;
     const ATLAS_HEIGHT: u32 = 64;

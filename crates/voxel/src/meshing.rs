@@ -176,6 +176,7 @@ fn generate_axis_mesh(
                         v_pos,
                         u_size,
                         v_size,
+                        voxel_size,
                         voxel_type,
                         positions,
                         normals,
@@ -201,6 +202,7 @@ fn add_quad(
     v_pos: f32,
     u_size: f32,
     v_size: f32,
+    _voxel_size: f32,
     _voxel_type: VoxelType,
     positions: &mut Vec<[f32; 3]>,
     normals: &mut Vec<[f32; 3]>,
@@ -242,12 +244,18 @@ fn add_quad(
         colors.push(color);
     }
 
-    // Add UVs (map to texture atlas based on voxel type)
-    let (u_min, u_max) = get_atlas_u_range(_voxel_type);
-    uvs.push([u_min, 0.0]);
-    uvs.push([u_max, 0.0]);
-    uvs.push([u_max, 1.0]);
-    uvs.push([u_min, 1.0]);
+    // Add UVs based on world-space position of each vertex
+    // This creates consistent tiling regardless of quad size
+    // We use the actual 3D positions of the quad corners
+    for corner in &corners {
+        // For each corner, project its 3D position onto 2D UV space
+        // Use the two axes perpendicular to the face normal
+        let u_coord = corner[u_axis];
+        let v_coord = corner[v_axis];
+
+        // Map world coordinates to UV space with repeating texture
+        uvs.push([u_coord, v_coord]);
+    }
 
     // Add indices (two triangles)
     // Y-axis faces need inverted winding order due to axis orientation
@@ -275,14 +283,3 @@ fn add_quad(
     }
 }
 
-/// Map voxel type to UV range in texture atlas
-/// Atlas layout: [Air | Grass | Dirt | Stone]
-/// Each occupies 0.25 of U coordinate (4 materials in horizontal strip)
-fn get_atlas_u_range(voxel_type: VoxelType) -> (f32, f32) {
-    match voxel_type {
-        VoxelType::Air => (0.0, 0.25),     // Shouldn't render, but just in case
-        VoxelType::Grass => (0.25, 0.5),   // Green
-        VoxelType::Dirt => (0.5, 0.75),    // Brown
-        VoxelType::Stone => (0.75, 1.0),   // Gray
-    }
-}

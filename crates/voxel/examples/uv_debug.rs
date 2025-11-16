@@ -26,13 +26,14 @@
 //! Run with: cargo run -p voxel --example uv_debug
 
 use bevy::prelude::*;
+use bevy_brp_extras::BrpExtrasPlugin;
 use engine::{FlyCameraController, FlyCameraPlugin};
 use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(FlyCameraPlugin)
+        .add_plugins((BrpExtrasPlugin, FlyCameraPlugin))
         .add_systems(Startup, setup)
         .run();
 }
