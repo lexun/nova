@@ -245,16 +245,21 @@ fn add_quad(
     }
 
     // Add UVs based on world-space position of each vertex
-    // This creates consistent tiling regardless of quad size
-    // We use the actual 3D positions of the quad corners
-    for corner in &corners {
-        // For each corner, project its 3D position onto 2D UV space
-        // Use the two axes perpendicular to the face normal
-        let u_coord = corner[u_axis];
-        let v_coord = corner[v_axis];
+    // Map to texture atlas region based on voxel type
+    const ATLAS_REGION_WIDTH: f32 = 0.25; // Each material occupies 0.25 of atlas width
+    let atlas_u_start = get_atlas_u_start(_voxel_type);
 
-        // Map world coordinates to UV space with repeating texture
-        uvs.push([u_coord, v_coord]);
+    for corner in &corners {
+        // Project 3D position onto 2D UV space using axes perpendicular to face normal
+        let u_world = corner[u_axis];
+        let v_world = corner[v_axis];
+
+        // Tile within the atlas region for this voxel type
+        // Take world coordinate modulo 1.0 to get tiling, then scale to atlas region
+        let u_tiled = (u_world % 1.0).abs() * ATLAS_REGION_WIDTH + atlas_u_start;
+        let v_tiled = (v_world % 1.0).abs();
+
+        uvs.push([u_tiled, v_tiled]);
     }
 
     // Add indices (two triangles)
@@ -280,6 +285,17 @@ fn add_quad(
             base_index + 2,
             base_index + 3,
         ]);
+    }
+}
+
+/// Get the starting U coordinate for a voxel type's region in the texture atlas
+/// Atlas layout: [Air | Grass | Dirt | Stone] each 0.25 wide
+fn get_atlas_u_start(voxel_type: VoxelType) -> f32 {
+    match voxel_type {
+        VoxelType::Air => 0.0,
+        VoxelType::Grass => 0.25,
+        VoxelType::Dirt => 0.5,
+        VoxelType::Stone => 0.75,
     }
 }
 
