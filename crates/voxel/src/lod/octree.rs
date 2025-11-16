@@ -358,11 +358,17 @@ impl OctreeManager {
     /// Initialize octree with root nodes around a center point
     ///
     /// Creates a grid of root nodes to cover a region around the camera.
+    /// Uses a limited vertical range to avoid creating too many chunks.
     pub fn initialize_around_point(&mut self, center: Vec3, radius: f32) {
         let grid_radius = (radius / self.root_size).ceil() as i32;
         let center_coord = OctreeCoord::from_world_pos(center, self.root_size);
 
-        for dy in -grid_radius..=grid_radius {
+        // Limit vertical range to avoid spawning thousands of chunks
+        // Most terrain is near Y=0, so we only need a few layers
+        let y_min = -2; // 2 layers below center (for caves/underground)
+        let y_max = 3;  // 3 layers above center (for hills/mountains)
+
+        for dy in y_min..=y_max {
             for dz in -grid_radius..=grid_radius {
                 for dx in -grid_radius..=grid_radius {
                     let coord = OctreeCoord::new(
