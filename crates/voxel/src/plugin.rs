@@ -2,9 +2,27 @@
 //!
 //! Provides a batteries-included API for spawning voxel terrain with sensible defaults.
 
-use crate::lod::{ChunkManager, LodSettings, RegionCoord};
+use crate::lod::{ChunkManager, LodSettings, OctreeManager, RegionCoord};
 use crate::terrain::{DefaultTerrainGenerator, TerrainGenerator};
 use bevy::prelude::*;
+
+/// LOD strategy selection for terrain rendering
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LodStrategy {
+    /// 2D heightmap-based LOD (current, proven)
+    /// - Fixed concentric rings around camera
+    /// - Chunks anchored at Y=0
+    /// - No caves or overhangs
+    /// - Limited height (32 voxels max)
+    Heightmap,
+
+    /// 3D octree-based LOD (new, experimental)
+    /// - View-dependent adaptive subdivision
+    /// - Chunks at any Y position
+    /// - Supports caves, tunnels, overhangs
+    /// - Unlimited height
+    Octree,
+}
 
 /// High-level voxel terrain component
 ///
@@ -22,7 +40,10 @@ pub struct VoxelTerrain {
     /// LOD settings (distances, voxel sizes, hysteresis)
     pub lod_settings: LodSettings,
 
-    /// Size of each region in meters
+    /// LOD strategy (heightmap or octree)
+    pub lod_strategy: LodStrategy,
+
+    /// Size of each region/octree node in meters
     pub region_size: f32,
 
     /// World bounds (for finite terrain)
@@ -39,12 +60,14 @@ impl VoxelTerrain {
     /// Uses sensible defaults:
     /// - DefaultTerrainGenerator (rolling hills)
     /// - LodSettings::demo() (400m view distance)
+    /// - Heightmap strategy (2D, proven)
     /// - 32m regions
     /// - Default gray material
     pub fn planar(world_size: f32) -> Self {
         Self {
             generator: Box::new(DefaultTerrainGenerator::new().with_max_world_size(world_size)),
             lod_settings: LodSettings::demo(),
+            lod_strategy: LodStrategy::Heightmap,
             region_size: 32.0,
             world_bounds: Some(Vec2::splat(world_size)),
             material: None,
@@ -56,8 +79,24 @@ impl VoxelTerrain {
         Self {
             generator: Box::new(DefaultTerrainGenerator::new()),
             lod_settings: LodSettings::infinite(),
+            lod_strategy: LodStrategy::Heightmap,
             region_size: 32.0,
             world_bounds: None,
+            material: None,
+        }
+    }
+
+    /// Create 3D cubic terrain using octree LOD
+    ///
+    /// Enables caves, tunnels, and unlimited height.
+    /// Uses octree-based adaptive LOD for better performance.
+    pub fn cubic(world_size: f32) -> Self {
+        Self {
+            generator: Box::new(DefaultTerrainGenerator::new().with_max_world_size(world_size)),
+            lod_settings: LodSettings::demo(),
+            lod_strategy: LodStrategy::Octree,
+            region_size: 64.0, // Larger root nodes for octree
+            world_bounds: Some(Vec2::splat(world_size)),
             material: None,
         }
     }
@@ -111,35 +150,47 @@ impl Plugin for VoxelTerrainPlugin {
 #[derive(Component)]
 struct TerrainInitialized;
 
-/// Component tracking chunk entities for a terrain instance
+/// LOD manager for a terrain instance
 #[derive(Component)]
-struct TerrainChunks {
-    manager: ChunkManager,
-    /// Entities pending despawn
-    pending_despawn: Vec<Entity>,
+enum TerrainLodManager {
+    Heightmap {
+        manager: ChunkManager,
+        pending_despawn: Vec<Entity>,
+    },
+    Octree {
+        manager: OctreeManager,
+    },
 }
 
 /// Initialize newly spawned VoxelTerrain entities
 fn initialize_terrain(
     mut commands: Commands,
-    query: Query<Entity, (With<VoxelTerrain>, Without<TerrainInitialized>)>,
+    query: Query<(Entity, &VoxelTerrain), Without<TerrainInitialized>>,
 ) {
-    for entity in &query {
-        commands.entity(entity).insert((
-            TerrainInitialized,
-            TerrainChunks {
+    for (entity, terrain) in &query {
+        let lod_manager = match terrain.lod_strategy {
+            LodStrategy::Heightmap => TerrainLodManager::Heightmap {
                 manager: ChunkManager::new(),
                 pending_despawn: Vec::new(),
             },
+            LodStrategy::Octree => TerrainLodManager::Octree {
+                manager: OctreeManager::new(terrain.region_size),
+            },
+        };
+
+        commands.entity(entity).insert((
+            TerrainInitialized,
+            lod_manager,
         ));
 
-        info!("Initialized voxel terrain entity {:?}", entity);
+        info!("Initialized voxel terrain entity {:?} with {:?} strategy",
+              entity, terrain.lod_strategy);
     }
 }
 
 /// Update LOD for all terrain based on camera position
 fn update_terrain_lod(
-    mut terrain_query: Query<(&VoxelTerrain, &mut TerrainChunks)>,
+    mut terrain_query: Query<(&VoxelTerrain, &mut TerrainLodManager)>,
     camera_query: Query<&Transform, With<Camera3d>>,
 ) {
     // Get camera position (use first camera found)
@@ -148,7 +199,30 @@ fn update_terrain_lod(
     };
     let camera_pos = camera_transform.translation;
 
-    for (terrain, mut chunks) in &mut terrain_query {
+    for (terrain, mut lod_manager) in &mut terrain_query {
+        match &mut *lod_manager {
+            TerrainLodManager::Heightmap { manager: chunks, pending_despawn } => {
+                update_heightmap_lod(terrain, chunks, pending_despawn, camera_pos);
+            },
+            TerrainLodManager::Octree { manager } => {
+                // Octree update happens in update() method
+                // For now, just initialize if empty
+                if manager.node_count() == 0 {
+                    manager.initialize_around_point(camera_pos, terrain.lod_settings.max_view_distance);
+                }
+                // Update will happen in spawn system
+            },
+        }
+    }
+}
+
+/// Update heightmap-based LOD
+fn update_heightmap_lod(
+    terrain: &VoxelTerrain,
+    chunks: &mut ChunkManager,
+    pending_despawn: &mut Vec<Entity>,
+    camera_pos: Vec3,
+) {
         let settings = &terrain.lod_settings;
         let region_size = terrain.region_size;
 
@@ -187,7 +261,7 @@ fn update_terrain_lod(
 
                 // Determine target LOD level
                 use crate::lod::LodLevel;
-                let current_lod = chunks.manager.get_region(region)
+                let current_lod = chunks.get_region(region)
                     .map(|(lod, _)| *lod)
                     .unwrap_or(LodLevel::None);
 
@@ -201,24 +275,23 @@ fn update_terrain_lod(
                 if target_lod != current_lod {
                     if target_lod == LodLevel::None {
                         // Remove region and mark entities for despawn
-                        if let Some((_, entities)) = chunks.manager.remove_region(region) {
-                            chunks.pending_despawn.extend(entities);
+                        if let Some((_, entities)) = chunks.remove_region(region) {
+                            pending_despawn.extend(entities);
                         }
                     } else if current_lod == LodLevel::None {
                         // Add new region (with empty entity list initially)
-                        chunks.manager.add_region(region, target_lod, Vec::new());
+                        chunks.add_region(region, target_lod, Vec::new());
                     } else {
                         // Update existing region's LOD - mark old entities for despawn
-                        let old_entities: Vec<Entity> = chunks.manager.get_region_mut(region)
+                        let old_entities: Vec<Entity> = chunks.get_region_mut(region)
                             .map(|(_, entities)| entities.drain(..).collect())
                             .unwrap_or_default();
-                        chunks.pending_despawn.extend(old_entities);
-                        chunks.manager.update_region_lod(region, target_lod);
+                        pending_despawn.extend(old_entities);
+                        chunks.update_region_lod(region, target_lod);
                     }
                 }
             }
         }
-    }
 }
 
 /// Spawn chunk meshes for regions that need them
@@ -226,64 +299,139 @@ fn spawn_terrain_chunks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut terrain_query: Query<(&VoxelTerrain, &mut TerrainChunks)>,
+    mut terrain_query: Query<(&VoxelTerrain, &mut TerrainLodManager)>,
+    camera_query: Query<&Transform, With<Camera3d>>,
 ) {
-    for (terrain, mut chunks) in &mut terrain_query {
-        let settings = &terrain.lod_settings;
-        let region_size = terrain.region_size;
+    let Some(camera_transform) = camera_query.iter().next() else {
+        return;
+    };
+    let camera_pos = camera_transform.translation;
 
-        // Get or create material
-        let material = terrain.material.clone().unwrap_or_else(|| {
-            materials.add(StandardMaterial {
-                base_color: Color::srgb(0.6, 0.6, 0.6),
-                perceptual_roughness: 0.8,
-                ..default()
-            })
-        });
+    for (terrain, mut lod_manager) in &mut terrain_query {
+        match &mut *lod_manager {
+            TerrainLodManager::Heightmap { manager: chunks, .. } => {
+                spawn_heightmap_chunks(terrain, chunks, &mut commands, &mut meshes, &mut materials);
+            },
+            TerrainLodManager::Octree { manager } => {
+                spawn_octree_chunks(terrain, manager, camera_pos, &mut commands, &mut meshes, &mut materials);
+            },
+        }
+    }
+}
 
-        // Find regions that need chunk entities spawned
-        let regions_to_spawn: Vec<_> = chunks.manager.regions()
-            .filter(|(_, data)| data.1.is_empty())
-            .map(|(region, data)| (*region, data.0))
-            .collect();
+/// Spawn heightmap chunks
+fn spawn_heightmap_chunks(
+    terrain: &VoxelTerrain,
+    chunks: &mut ChunkManager,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+) {
+    let settings = &terrain.lod_settings;
+    let region_size = terrain.region_size;
 
-        for (region, lod) in regions_to_spawn {
-            let voxel_size = lod.voxel_size_with_settings(settings);
-            let chunks_per_edge = lod.chunks_per_edge();
+    // Get or create material
+    let material = terrain.material.clone().unwrap_or_else(|| {
+        materials.add(StandardMaterial {
+            base_color: Color::srgb(0.6, 0.6, 0.6),
+            perceptual_roughness: 0.8,
+            ..default()
+        })
+    });
 
-            let region_world_pos = region.to_world_pos(region_size);
-            let chunk_world_size = region_size / chunks_per_edge as f32;
+    // Find regions that need chunk entities spawned
+    let regions_to_spawn: Vec<_> = chunks.regions()
+        .filter(|(_, data)| data.1.is_empty())
+        .map(|(region, data)| (*region, data.0))
+        .collect();
 
-            let mut chunk_entities = Vec::new();
+    for (region, lod) in regions_to_spawn {
+        let voxel_size = lod.voxel_size_with_settings(settings);
+        let chunks_per_edge = lod.chunks_per_edge();
 
-            // Generate chunks for this region
-            for chunk_x in 0..chunks_per_edge {
-                for chunk_z in 0..chunks_per_edge {
-                    let chunk_offset = region_world_pos + Vec3::new(
-                        chunk_x as f32 * chunk_world_size,
-                        0.0,
-                        chunk_z as f32 * chunk_world_size,
-                    );
+        let region_world_pos = region.to_world_pos(region_size);
+        let chunk_world_size = region_size / chunks_per_edge as f32;
 
-                    // Generate voxel data
-                    let chunk = terrain.generator.generate_chunk(chunk_offset, voxel_size);
+        let mut chunk_entities = Vec::new();
 
-                    // Generate mesh
-                    let mesh = crate::meshing::generate_chunk_mesh(&chunk, voxel_size);
+        // Generate chunks for this region
+        for chunk_x in 0..chunks_per_edge {
+            for chunk_z in 0..chunks_per_edge {
+                let chunk_offset = region_world_pos + Vec3::new(
+                    chunk_x as f32 * chunk_world_size,
+                    0.0,
+                    chunk_z as f32 * chunk_world_size,
+                );
 
-                    // Spawn entity
-                    let entity = commands.spawn((
-                        Mesh3d(meshes.add(mesh)),
-                        MeshMaterial3d(material.clone()),
-                        Transform::from_translation(chunk_offset),
-                    )).id();
+                // Generate voxel data
+                let chunk = terrain.generator.generate_chunk(chunk_offset, voxel_size);
 
-                    chunk_entities.push(entity);
-                }
+                // Generate mesh
+                let mesh = crate::meshing::generate_chunk_mesh(&chunk, voxel_size);
+
+                // Spawn entity
+                let entity = commands.spawn((
+                    Mesh3d(meshes.add(mesh)),
+                    MeshMaterial3d(material.clone()),
+                    Transform::from_translation(chunk_offset),
+                )).id();
+
+                chunk_entities.push(entity);
             }
+        }
 
-            // Update chunk manager with spawned entities
-            chunks.manager.update_region_chunks(region, chunk_entities);
+        // Update chunk manager with spawned entities
+        chunks.update_region_chunks(region, chunk_entities);
+    }
+}
+
+/// Spawn octree chunks
+fn spawn_octree_chunks(
+    terrain: &VoxelTerrain,
+    octree: &mut OctreeManager,
+    camera_pos: Vec3,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+) {
+    // Update octree (subdivide/merge based on camera)
+    let _coords_to_spawn = octree.update(camera_pos);
+
+    // Get or create material
+    let material = terrain.material.clone().unwrap_or_else(|| {
+        materials.add(StandardMaterial {
+            base_color: Color::srgb(0.6, 0.6, 0.6),
+            perceptual_roughness: 0.8,
+            ..default()
+        })
+    });
+
+    // Spawn chunks for leaf nodes that don't have entities
+    let nodes_to_spawn: Vec<_> = octree.nodes()
+        .filter(|(_, node)| !node.is_subdivided && node.chunk_entity.is_none())
+        .map(|(coord, node)| (*coord, node.size, node.lod))
+        .collect();
+
+    for (coord, size, lod) in nodes_to_spawn {
+        let voxel_size = lod.voxel_size_with_settings(&terrain.lod_settings);
+        let world_pos = coord.to_world_pos(size);
+
+        // Generate voxel data
+        let chunk = terrain.generator.generate_chunk(world_pos, voxel_size);
+
+        // Generate mesh
+        let mesh = crate::meshing::generate_chunk_mesh(&chunk, voxel_size);
+
+        // Spawn entity
+        let entity = commands.spawn((
+            Mesh3d(meshes.add(mesh)),
+            MeshMaterial3d(material.clone()),
+            Transform::from_translation(world_pos),
+        )).id();
+
+        // Store entity in octree node
+        if let Some(node) = octree.get_node_mut(coord) {
+            node.chunk_entity = Some(entity);
         }
     }
 }
@@ -291,12 +439,20 @@ fn spawn_terrain_chunks(
 /// Cleanup chunks for regions that were removed
 fn cleanup_terrain_chunks(
     mut commands: Commands,
-    mut terrain_query: Query<&mut TerrainChunks>,
+    mut terrain_query: Query<&mut TerrainLodManager>,
 ) {
-    for mut chunks in &mut terrain_query {
-        // Despawn all pending entities
-        for entity in chunks.pending_despawn.drain(..) {
-            commands.entity(entity).despawn();
+    for mut lod_manager in &mut terrain_query {
+        match &mut *lod_manager {
+            TerrainLodManager::Heightmap { pending_despawn, .. } => {
+                for entity in pending_despawn.drain(..) {
+                    commands.entity(entity).despawn();
+                }
+            },
+            TerrainLodManager::Octree { manager } => {
+                for entity in manager.take_pending_despawn() {
+                    commands.entity(entity).despawn();
+                }
+            },
         }
     }
 }

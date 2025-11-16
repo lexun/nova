@@ -210,6 +210,183 @@ impl OctreeNode {
     }
 }
 
+/// Manages the octree hierarchy for 3D LOD terrain
+///
+/// Tracks active octree nodes and their subdivision state based on camera position.
+/// Nodes automatically subdivide when the camera gets close and merge when it moves away.
+#[derive(Resource, Default)]
+pub struct OctreeManager {
+    /// All active octree nodes indexed by coordinate
+    nodes: std::collections::HashMap<OctreeCoord, OctreeNode>,
+
+    /// Root node size (largest octree node size)
+    root_size: f32,
+
+    /// Entities pending despawn when nodes merge
+    pending_despawn: Vec<Entity>,
+}
+
+impl OctreeManager {
+    /// Create a new octree manager with given root node size
+    ///
+    /// # Arguments
+    /// * `root_size` - Size of the largest octree nodes (e.g., 64m)
+    pub fn new(root_size: f32) -> Self {
+        Self {
+            nodes: std::collections::HashMap::new(),
+            root_size,
+            pending_despawn: Vec::new(),
+        }
+    }
+
+    /// Get a node by coordinate
+    pub fn get_node(&self, coord: OctreeCoord) -> Option<&OctreeNode> {
+        self.nodes.get(&coord)
+    }
+
+    /// Get a mutable node by coordinate
+    pub fn get_node_mut(&mut self, coord: OctreeCoord) -> Option<&mut OctreeNode> {
+        self.nodes.get_mut(&coord)
+    }
+
+    /// Insert or update a node
+    pub fn insert_node(&mut self, node: OctreeNode) {
+        self.nodes.insert(node.coord, node);
+    }
+
+    /// Remove a node and return it
+    pub fn remove_node(&mut self, coord: OctreeCoord) -> Option<OctreeNode> {
+        self.nodes.remove(&coord)
+    }
+
+    /// Check if a node exists
+    pub fn has_node(&self, coord: OctreeCoord) -> bool {
+        self.nodes.contains_key(&coord)
+    }
+
+    /// Get the number of active nodes
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
+
+    /// Get iterator over all nodes
+    pub fn nodes(&self) -> impl Iterator<Item = (&OctreeCoord, &OctreeNode)> {
+        self.nodes.iter()
+    }
+
+    /// Update octree based on camera position
+    ///
+    /// Subdivides nodes that are close to the camera and merges nodes that are far away.
+    /// Returns a list of coordinates that need chunks spawned.
+    pub fn update(&mut self, camera_pos: Vec3) -> Vec<OctreeCoord> {
+        let mut coords_to_spawn = Vec::new();
+
+        // Find nodes that need subdivision
+        let to_subdivide: Vec<OctreeCoord> = self.nodes.values()
+            .filter(|node| !node.is_subdivided && node.should_subdivide(camera_pos))
+            .map(|node| node.coord)
+            .collect();
+
+        // Subdivide nodes
+        for coord in to_subdivide {
+            if let Some(node) = self.nodes.get_mut(&coord) {
+                // Mark old chunk for despawn if it exists
+                if let Some(entity) = node.chunk_entity {
+                    self.pending_despawn.push(entity);
+                    node.chunk_entity = None;
+                }
+
+                // Create children
+                let children = node.subdivide();
+                let child_size = node.size / 2.0;
+                let child_lod = match node.lod {
+                    LodLevel::Lod4 => LodLevel::Lod3,
+                    LodLevel::Lod3 => LodLevel::Lod2,
+                    LodLevel::Lod2 => LodLevel::Lod1,
+                    LodLevel::Lod1 => LodLevel::Lod0,
+                    LodLevel::Lod0 => LodLevel::Lod0,
+                    LodLevel::None => LodLevel::None,
+                };
+
+                // Add child nodes
+                for child_coord in children {
+                    let child_node = OctreeNode::new(child_coord, child_size, child_lod);
+                    coords_to_spawn.push(child_coord);
+                    self.nodes.insert(child_coord, child_node);
+                }
+            }
+        }
+
+        // Find nodes that should merge
+        let to_merge: Vec<OctreeCoord> = self.nodes.values()
+            .filter(|node| node.is_subdivided && node.should_merge(camera_pos))
+            .map(|node| node.coord)
+            .collect();
+
+        // Merge nodes (remove children)
+        for coord in to_merge {
+            if let Some(node) = self.nodes.get(&coord) {
+                let children = node.children.clone();
+
+                // Remove all children and mark their chunks for despawn
+                for child_coord in children {
+                    if let Some(child) = self.remove_node(child_coord) {
+                        if let Some(entity) = child.chunk_entity {
+                            self.pending_despawn.push(entity);
+                        }
+                    }
+                }
+
+                // Mark parent as not subdivided
+                if let Some(parent) = self.nodes.get_mut(&coord) {
+                    parent.is_subdivided = false;
+                    parent.children.clear();
+                    // Parent needs a chunk spawned now
+                    coords_to_spawn.push(coord);
+                }
+            }
+        }
+
+        coords_to_spawn
+    }
+
+    /// Take all entities pending despawn
+    pub fn take_pending_despawn(&mut self) -> Vec<Entity> {
+        std::mem::take(&mut self.pending_despawn)
+    }
+
+    /// Initialize octree with root nodes around a center point
+    ///
+    /// Creates a grid of root nodes to cover a region around the camera.
+    pub fn initialize_around_point(&mut self, center: Vec3, radius: f32) {
+        let grid_radius = (radius / self.root_size).ceil() as i32;
+        let center_coord = OctreeCoord::from_world_pos(center, self.root_size);
+
+        for dy in -grid_radius..=grid_radius {
+            for dz in -grid_radius..=grid_radius {
+                for dx in -grid_radius..=grid_radius {
+                    let coord = OctreeCoord::new(
+                        center_coord.x + dx,
+                        center_coord.y + dy,
+                        center_coord.z + dz,
+                    );
+
+                    if !self.has_node(coord) {
+                        let node = OctreeNode::new(coord, self.root_size, LodLevel::Lod4);
+                        self.insert_node(node);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Clear all nodes
+    pub fn clear(&mut self) {
+        self.nodes.clear();
+        self.pending_despawn.clear();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
