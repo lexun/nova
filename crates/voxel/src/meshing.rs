@@ -7,11 +7,22 @@ use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 
+/// Get color for a voxel type (RGBA in linear color space)
+fn voxel_color(voxel_type: VoxelType) -> [f32; 4] {
+    match voxel_type {
+        VoxelType::Air => [0.0, 0.0, 0.0, 0.0], // Should never be rendered
+        VoxelType::Grass => [0.3, 0.6, 0.2, 1.0], // Green
+        VoxelType::Dirt => [0.5, 0.35, 0.2, 1.0], // Brown
+        VoxelType::Stone => [0.5, 0.5, 0.5, 1.0], // Gray
+    }
+}
+
 /// Generate a mesh from a voxel chunk using greedy meshing
 pub fn generate_chunk_mesh(chunk: &Chunk, voxel_size: f32) -> Mesh {
     let mut positions = Vec::new();
     let mut normals = Vec::new();
     let mut uvs = Vec::new();
+    let mut colors = Vec::new();
     let mut indices = Vec::new();
 
     // For each axis (X, Y, Z) and direction (positive, negative)
@@ -25,6 +36,7 @@ pub fn generate_chunk_mesh(chunk: &Chunk, voxel_size: f32) -> Mesh {
                 &mut positions,
                 &mut normals,
                 &mut uvs,
+                &mut colors,
                 &mut indices,
             );
         }
@@ -39,6 +51,7 @@ pub fn generate_chunk_mesh(chunk: &Chunk, voxel_size: f32) -> Mesh {
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
     mesh.insert_indices(Indices::U32(indices));
 
     mesh
@@ -53,6 +66,7 @@ fn generate_axis_mesh(
     positions: &mut Vec<[f32; 3]>,
     normals: &mut Vec<[f32; 3]>,
     uvs: &mut Vec<[f32; 2]>,
+    colors: &mut Vec<[f32; 4]>,
     indices: &mut Vec<u32>,
 ) {
     // Determine axis permutations
@@ -166,6 +180,7 @@ fn generate_axis_mesh(
                         positions,
                         normals,
                         uvs,
+                        colors,
                         indices,
                     );
                 }
@@ -190,6 +205,7 @@ fn add_quad(
     positions: &mut Vec<[f32; 3]>,
     normals: &mut Vec<[f32; 3]>,
     uvs: &mut Vec<[f32; 2]>,
+    colors: &mut Vec<[f32; 4]>,
     indices: &mut Vec<u32>,
 ) {
     let base_index = positions.len() as u32;
@@ -216,10 +232,14 @@ fn add_quad(
     let mut normal = [0.0; 3];
     normal[axis] = if back_face { -1.0 } else { 1.0 };
 
+    // Get color for this voxel type
+    let color = voxel_color(_voxel_type);
+
     // Add vertices
     for corner in &corners {
         positions.push(*corner);
         normals.push(normal);
+        colors.push(color);
     }
 
     // Add UVs (map to texture atlas based on voxel type)

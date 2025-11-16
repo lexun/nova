@@ -331,9 +331,10 @@ fn spawn_heightmap_chunks(
     let region_size = terrain.region_size;
 
     // Get or create material
+    // Use white base color so vertex colors show through
     let material = terrain.material.clone().unwrap_or_else(|| {
         materials.add(StandardMaterial {
-            base_color: Color::srgb(0.6, 0.6, 0.6),
+            base_color: Color::WHITE,
             perceptual_roughness: 0.8,
             ..default()
         })
@@ -398,9 +399,10 @@ fn spawn_octree_chunks(
     let _coords_to_spawn = octree.update(camera_pos);
 
     // Get or create material
+    // Use white base color so vertex colors show through
     let material = terrain.material.clone().unwrap_or_else(|| {
         materials.add(StandardMaterial {
-            base_color: Color::srgb(0.6, 0.6, 0.6),
+            base_color: Color::WHITE,
             perceptual_roughness: 0.8,
             ..default()
         })
