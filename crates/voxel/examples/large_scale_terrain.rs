@@ -6,35 +6,41 @@
 //! - Smooth transitions between detail levels
 //!
 //! Controls:
+//! - Click to capture mouse
+//! - Escape to release mouse
 //! - WASD: Move camera horizontally
-//! - Space/Shift: Move camera up/down
-//! - Mouse: Look around
+//! - QE: Move camera up/down
+//! - Shift: Hold for faster movement (3× speed)
+//! - Mouse: Look around (when captured)
 //!
 //! Run with: cargo run -p voxel --example large_scale_terrain --release
 
 use bevy::prelude::*;
-use voxel::{VoxelTerrain, VoxelTerrainPlugin, lod::LodSettings};
+use engine::{FlyCameraController, FlyCameraPlugin};
+use voxel::{lod::LodSettings, VoxelTerrain, VoxelTerrainPlugin};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(VoxelTerrainPlugin)
+        .add_plugins((VoxelTerrainPlugin, FlyCameraPlugin))
         .add_systems(Startup, setup)
-        .add_systems(Update, camera_controller)
         .run();
 }
 
 fn setup(mut commands: Commands) {
     // Large-scale terrain with production LOD settings
     commands.spawn(
-        VoxelTerrain::planar(2048.0)
-            .with_lod_settings(LodSettings::production())
+        VoxelTerrain::planar(2048.0).with_lod_settings(LodSettings::production()),
     );
 
-    // Camera positioned for dramatic view
+    // Camera positioned for dramatic view with faster movement speed
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 150.0, 0.0).looking_at(Vec3::new(200.0, 0.0, 200.0), Vec3::Y),
+        FlyCameraController {
+            move_speed: 100.0,
+            ..default()
+        },
     ));
 
     // Atmospheric lighting
@@ -53,39 +59,4 @@ fn setup(mut commands: Commands) {
         brightness: 200.0,
         ..default()
     });
-}
-
-fn camera_controller(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut camera: Query<&mut Transform, With<Camera3d>>,
-    time: Res<Time>,
-) {
-    let Ok(mut transform) = camera.single_mut() else {
-        return;
-    };
-    let speed = 100.0 * time.delta_secs(); // Faster movement for larger world
-
-    // Calculate directions first (immutable borrow)
-    let forward = transform.forward();
-    let right = transform.right();
-
-    // Then mutate translation
-    if keyboard.pressed(KeyCode::KeyW) {
-        transform.translation += forward * speed;
-    }
-    if keyboard.pressed(KeyCode::KeyS) {
-        transform.translation -= forward * speed;
-    }
-    if keyboard.pressed(KeyCode::KeyA) {
-        transform.translation -= right * speed;
-    }
-    if keyboard.pressed(KeyCode::KeyD) {
-        transform.translation += right * speed;
-    }
-    if keyboard.pressed(KeyCode::Space) {
-        transform.translation.y += speed;
-    }
-    if keyboard.pressed(KeyCode::ShiftLeft) {
-        transform.translation.y -= speed;
-    }
 }
