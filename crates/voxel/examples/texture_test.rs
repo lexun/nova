@@ -43,12 +43,12 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    // Generate simple grid texture (not an atlas)
-    let grid_image = generate_grid_texture();
-    let grid_texture = images.add(grid_image);
+    // Generate texture atlas (same as used in plugin)
+    let atlas_image = voxel::atlas::generate_atlas();
+    let atlas_texture = images.add(atlas_image);
 
     let material = materials.add(StandardMaterial {
-        base_color_texture: Some(grid_texture),
+        base_color_texture: Some(atlas_texture),
         perceptual_roughness: 0.8,
         ..default()
     });
@@ -159,61 +159,6 @@ fn spawn_test_shape(
     ));
 }
 
-/// Generate simple grid texture that tiles
-fn generate_grid_texture() -> Image {
-    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-    use bevy::asset::RenderAssetUsages;
-
-    // Simple 64x64 grid texture that tiles perfectly
-    const SIZE: u32 = 64;
-    const GRID_SIZE: u32 = 8; // Grid lines every 8 pixels
-
-    let mut data = vec![0u8; (SIZE * SIZE * 4) as usize];
-
-    for y in 0..SIZE {
-        for x in 0..SIZE {
-            // Create visible grid lines
-            let is_grid_line = (x % GRID_SIZE == 0) || (y % GRID_SIZE == 0);
-
-            let value = if is_grid_line {
-                0.2 // Dark grid lines
-            } else {
-                0.6 // Light background
-            };
-
-            let color_u8 = (value * 255.0) as u8;
-
-            let pixel_index = ((y * SIZE + x) * 4) as usize;
-            data[pixel_index] = color_u8;
-            data[pixel_index + 1] = color_u8;
-            data[pixel_index + 2] = color_u8;
-            data[pixel_index + 3] = 255;
-        }
-    }
-
-    let mut image = Image::new(
-        Extent3d {
-            width: SIZE,
-            height: SIZE,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        data,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::RENDER_WORLD,
-    );
-
-    // Set texture to repeat mode so UVs > 1.0 tile the texture
-    use bevy::image::{ImageSamplerDescriptor, ImageAddressMode};
-    image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-        address_mode_u: ImageAddressMode::Repeat,
-        address_mode_v: ImageAddressMode::Repeat,
-        address_mode_w: ImageAddressMode::Repeat,
-        ..default()
-    });
-
-    image
-}
 
 #[allow(dead_code)]
 fn fill_solid_region(data: &mut [u8], material_index: u32, color: [u8; 4]) {
