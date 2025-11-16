@@ -416,32 +416,23 @@ fn spawn_octree_chunks(
         let voxel_size = lod.voxel_size_with_settings(&terrain.lod_settings);
         let world_pos = coord.to_world_pos(size);
 
-        // Check if we have a cached entity for this coordinate
-        let entity = if let Some(cached_entity) = octree.get_cached_entity(coord) {
-            // Reuse cached entity - just make it visible again
-            commands.entity(cached_entity).insert(Visibility::Visible);
-            cached_entity
-        } else {
-            // Generate voxel data (only if not cached)
-            let chunk = terrain.generator.generate_chunk(world_pos, voxel_size);
+        // Generate voxel data
+        let chunk = terrain.generator.generate_chunk(world_pos, voxel_size);
 
-            // Generate mesh (only if not cached)
-            let mesh = crate::meshing::generate_chunk_mesh(&chunk, voxel_size);
+        // Generate mesh
+        let mesh = crate::meshing::generate_chunk_mesh(&chunk, voxel_size);
 
-            // Spawn new entity
-            commands.spawn((
-                Mesh3d(meshes.add(mesh)),
-                MeshMaterial3d(material.clone()),
-                Transform::from_translation(world_pos),
-                Visibility::Visible,
-            )).id()
-        };
+        // Spawn entity
+        let entity = commands.spawn((
+            Mesh3d(meshes.add(mesh)),
+            MeshMaterial3d(material.clone()),
+            Transform::from_translation(world_pos),
+        )).id();
 
-        // Store entity in octree node and cache
+        // Store entity in octree node
         if let Some(node) = octree.get_node_mut(coord) {
             node.chunk_entity = Some(entity);
         }
-        octree.cache_entity(coord, entity);
     }
 }
 
@@ -458,12 +449,6 @@ fn cleanup_terrain_chunks(
                 }
             },
             TerrainLodManager::Octree { manager } => {
-                // Hide entities instead of despawning (keep them cached)
-                for entity in manager.take_pending_hide() {
-                    commands.entity(entity).insert(Visibility::Hidden);
-                }
-
-                // Only despawn entities that are truly far away
                 for entity in manager.take_pending_despawn() {
                     commands.entity(entity).despawn();
                 }

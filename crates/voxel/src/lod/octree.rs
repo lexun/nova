@@ -214,7 +214,7 @@ impl OctreeNode {
 ///
 /// Tracks active octree nodes and their subdivision state based on camera position.
 /// Nodes automatically subdivide when the camera gets close and merge when it moves away.
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct OctreeManager {
     /// All active octree nodes indexed by coordinate
     nodes: std::collections::HashMap<OctreeCoord, OctreeNode>,
@@ -222,27 +222,8 @@ pub struct OctreeManager {
     /// Root node size (largest octree node size)
     root_size: f32,
 
-    /// Entities pending visibility change (to be hidden, not despawned)
-    pending_hide: Vec<Entity>,
-
-    /// Entities pending despawn (only when truly far away)
+    /// Entities pending despawn when nodes merge
     pending_despawn: Vec<Entity>,
-
-    /// Cache of entity handles by coordinate to avoid regeneration
-    /// When nodes are hidden, they stay in this cache for fast reactivation
-    entity_cache: std::collections::HashMap<OctreeCoord, Entity>,
-}
-
-impl Default for OctreeManager {
-    fn default() -> Self {
-        Self {
-            nodes: std::collections::HashMap::new(),
-            root_size: 64.0,
-            pending_hide: Vec::new(),
-            pending_despawn: Vec::new(),
-            entity_cache: std::collections::HashMap::new(),
-        }
-    }
 }
 
 impl OctreeManager {
@@ -254,9 +235,7 @@ impl OctreeManager {
         Self {
             nodes: std::collections::HashMap::new(),
             root_size,
-            pending_hide: Vec::new(),
             pending_despawn: Vec::new(),
-            entity_cache: std::collections::HashMap::new(),
         }
     }
 
@@ -310,9 +289,12 @@ impl OctreeManager {
 
         // Subdivide nodes
         for coord in to_subdivide {
-            let (entity_to_hide, children, child_size, child_lod) = if let Some(node) = self.nodes.get_mut(&coord) {
-                // Mark old chunk for hiding (not despawning - keep it cached)
-                let entity_to_hide = node.chunk_entity.take();
+            if let Some(node) = self.nodes.get_mut(&coord) {
+                // Mark old chunk for despawn if it exists
+                if let Some(entity) = node.chunk_entity {
+                    self.pending_despawn.push(entity);
+                    node.chunk_entity = None;
+                }
 
                 // Create children
                 let children = node.subdivide();
@@ -326,22 +308,12 @@ impl OctreeManager {
                     LodLevel::None => LodLevel::None,
                 };
 
-                (entity_to_hide, children, child_size, child_lod)
-            } else {
-                continue;
-            };
-
-            // Handle entity hiding (outside of mutable borrow)
-            if let Some(entity) = entity_to_hide {
-                self.pending_hide.push(entity);
-                self.cache_entity(coord, entity);
-            }
-
-            // Add child nodes
-            for child_coord in children {
-                let child_node = OctreeNode::new(child_coord, child_size, child_lod);
-                coords_to_spawn.push(child_coord);
-                self.nodes.insert(child_coord, child_node);
+                // Add child nodes
+                for child_coord in children {
+                    let child_node = OctreeNode::new(child_coord, child_size, child_lod);
+                    coords_to_spawn.push(child_coord);
+                    self.nodes.insert(child_coord, child_node);
+                }
             }
         }
 
@@ -356,13 +328,11 @@ impl OctreeManager {
             if let Some(node) = self.nodes.get(&coord) {
                 let children = node.children.clone();
 
-                // Remove all children and mark their chunks for hiding (keep cached)
+                // Remove all children and mark their chunks for despawn
                 for child_coord in children {
                     if let Some(child) = self.remove_node(child_coord) {
                         if let Some(entity) = child.chunk_entity {
-                            self.pending_hide.push(entity);
-                            // Cache child entities
-                            self.cache_entity(child_coord, entity);
+                            self.pending_despawn.push(entity);
                         }
                     }
                 }
@@ -383,26 +353,6 @@ impl OctreeManager {
     /// Take all entities pending despawn
     pub fn take_pending_despawn(&mut self) -> Vec<Entity> {
         std::mem::take(&mut self.pending_despawn)
-    }
-
-    /// Take all entities pending hide (should be made invisible)
-    pub fn take_pending_hide(&mut self) -> Vec<Entity> {
-        std::mem::take(&mut self.pending_hide)
-    }
-
-    /// Get cached entity for a coordinate (if it exists)
-    pub fn get_cached_entity(&self, coord: OctreeCoord) -> Option<Entity> {
-        self.entity_cache.get(&coord).copied()
-    }
-
-    /// Cache an entity for a coordinate
-    pub fn cache_entity(&mut self, coord: OctreeCoord, entity: Entity) {
-        self.entity_cache.insert(coord, entity);
-    }
-
-    /// Remove entity from cache
-    pub fn uncache_entity(&mut self, coord: OctreeCoord) -> Option<Entity> {
-        self.entity_cache.remove(&coord)
     }
 
     /// Initialize octree with root nodes around a center point
