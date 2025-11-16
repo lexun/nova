@@ -38,5 +38,8 @@
 
 pub mod generator;
 
-// Re-export terrain generation function
-pub use generator::terrain_height;
+// Re-export terrain generation types
+pub use generator::{
+    terrain_height, DebugPattern, DebugPatternGenerator, DefaultTerrainGenerator,
+    FlatTerrainGenerator, TerrainGenerator,
+};
