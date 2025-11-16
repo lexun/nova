@@ -130,7 +130,7 @@ impl ChunkManager {
     }
 
     /// Get an iterator over all active region coordinates
-    pub fn regions(&self) -> impl Iterator<Item = &RegionCoord> {
+    pub fn region_coords(&self) -> impl Iterator<Item = &RegionCoord> {
         self.active_regions.keys()
     }
 
@@ -143,5 +143,36 @@ impl ChunkManager {
     /// Clear all regions
     pub fn clear(&mut self) {
         self.active_regions.clear();
+    }
+
+    /// Add a new region with given LOD level (empty entity list)
+    pub fn add_region(&mut self, coord: RegionCoord, lod: LodLevel, entities: Vec<Entity>) {
+        self.insert_region(coord, lod, entities);
+    }
+
+    /// Update an existing region's LOD level (preserves entities, they'll be replaced)
+    pub fn update_region_lod(&mut self, coord: RegionCoord, new_lod: LodLevel) {
+        if let Some((lod, _)) = self.active_regions.get_mut(&coord) {
+            *lod = new_lod;
+        }
+    }
+
+    /// Update a region's chunk entities
+    pub fn update_region_chunks(&mut self, coord: RegionCoord, entities: Vec<Entity>) {
+        if let Some((_, ent_vec)) = self.active_regions.get_mut(&coord) {
+            *ent_vec = entities;
+        }
+    }
+
+    /// Iterator over regions and their data
+    pub fn regions(&self) -> impl Iterator<Item = (&RegionCoord, &(LodLevel, Vec<Entity>))> {
+        self.active_regions.iter()
+    }
+
+    /// Take removed chunks (returns empty vec for now, can be enhanced later)
+    pub fn take_removed_chunks(&mut self) -> Vec<Entity> {
+        // This would track entities scheduled for removal
+        // For now, regions are removed immediately and entities despawned
+        Vec::new()
     }
 }

@@ -30,18 +30,41 @@
 //! - [`lod`]: Level of Detail system ([`lod::LodLevel`], [`lod::ChunkManager`])
 //! - [`terrain`]: Procedural terrain generation utilities ([`terrain::terrain_height`])
 //!
+//! ## Quick Start
+//!
+//! The easiest way to use the voxel system is via the high-level [`VoxelTerrain`] API:
+//!
+//! ```ignore
+//! use bevy::prelude::*;
+//! use voxel::{VoxelTerrain, VoxelTerrainPlugin};
+//!
+//! App::new()
+//!     .add_plugins(DefaultPlugins)
+//!     .add_plugins(VoxelTerrainPlugin)
+//!     .add_systems(Startup, setup)
+//!     .run();
+//!
+//! fn setup(mut commands: Commands) {
+//!     commands.spawn(VoxelTerrain::planar(512.0));  // That's it!
+//!     // Camera, lights, etc.
+//! }
+//! ```
+//!
 //! ## Examples
 //!
 //! The crate includes several examples demonstrating different aspects of the voxel system:
 //!
 //! ```bash
+//! # Simple high-level API (recommended starting point)
+//! cargo run -p voxel --example simple_terrain
+//!
 //! # Multi-chunk terrain with chunk boundaries
 //! cargo run -p voxel --example multi_chunk_terrain
 //!
 //! # Side-by-side LOD comparison (1, 4, and 16 chunks)
 //! cargo run -p voxel --example lod_comparison
 //!
-//! # Dynamic LOD transitions based on camera distance
+//! # Manual LOD transitions (low-level control)
 //! cargo run -p voxel --example dynamic_lod
 //!
 //! # Greedy meshing validation with 8 test patterns
@@ -71,9 +94,13 @@ pub mod meshing;
 // System modules
 pub mod lod;
 pub mod terrain;
+pub mod plugin;
 
 // Re-export core types for backwards compatibility
 pub use chunk::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
+
+// Re-export high-level API
+pub use plugin::{VoxelTerrain, VoxelTerrainPlugin};
 
 /// Voxel system plugin for Bevy
 pub struct VoxelSystemPlugin;
