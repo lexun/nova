@@ -18,14 +18,15 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
 ) {
-    // Load the grid texture
-    let texture_handle = asset_server.load("textures/debug_grid_8x8.png");
+    // Generate simple grid texture procedurally
+    let grid_image = generate_grid_texture();
+    let grid_texture = images.add(grid_image);
 
     // Create material with grid texture
     let material = materials.add(StandardMaterial {
-        base_color_texture: Some(texture_handle),
+        base_color_texture: Some(grid_texture),
         unlit: true,
         ..default()
     });
@@ -75,4 +76,51 @@ fn setup(
         Transform::from_xyz(5.0, 3.0, 5.0).looking_at(Vec3::new(1.0, 1.0, 1.0), Vec3::Y),
         FlyCameraController::default(),
     ));
+}
+
+/// Generate simple 64x64 grid texture that tiles
+fn generate_grid_texture() -> Image {
+    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+    use bevy::asset::RenderAssetUsages;
+    use bevy::image::{ImageSampler, ImageSamplerDescriptor, ImageAddressMode};
+
+    const SIZE: u32 = 64;
+    const GRID_SIZE: u32 = 8;
+
+    let mut data = vec![0u8; (SIZE * SIZE * 4) as usize];
+
+    for y in 0..SIZE {
+        for x in 0..SIZE {
+            let is_grid_line = (x % GRID_SIZE == 0) || (y % GRID_SIZE == 0);
+            let value = if is_grid_line { 0.2 } else { 0.6 };
+            let color_u8 = (value * 255.0) as u8;
+
+            let pixel_index = ((y * SIZE + x) * 4) as usize;
+            data[pixel_index] = color_u8;
+            data[pixel_index + 1] = color_u8;
+            data[pixel_index + 2] = color_u8;
+            data[pixel_index + 3] = 255;
+        }
+    }
+
+    let mut image = Image::new(
+        Extent3d {
+            width: SIZE,
+            height: SIZE,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        data,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+
+    image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+        address_mode_u: ImageAddressMode::Repeat,
+        address_mode_v: ImageAddressMode::Repeat,
+        address_mode_w: ImageAddressMode::Repeat,
+        ..default()
+    });
+
+    image
 }
