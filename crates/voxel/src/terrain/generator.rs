@@ -102,11 +102,13 @@ impl TerrainGenerator for DefaultTerrainGenerator {
 
                 // Convert to voxel coordinates
                 let height_voxels = (height_meters / voxel_size) as usize;
-                let max_height = height_voxels.min(CHUNK_SIZE - 1);
 
                 // Fill voxels from bottom to height with layered materials
-                for local_y in 0..=max_height {
-                    let depth_from_surface = max_height.saturating_sub(local_y);
+                // Clamp to chunk bounds, but calculate materials based on actual height
+                let max_y = height_voxels.min(CHUNK_SIZE - 1);
+                for local_y in 0..=max_y {
+                    // Calculate depth from ACTUAL surface, not clamped height
+                    let depth_from_surface = height_voxels.saturating_sub(local_y);
 
                     let voxel_type = if depth_from_surface == 0 {
                         VoxelType::Grass // Top layer
