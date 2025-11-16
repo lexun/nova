@@ -20,10 +20,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands) {
     // Create a small world that loads quickly
     // Use heightmap mode (proven, fast) not octree
     commands.spawn(VoxelTerrain::planar(64.0));
@@ -56,7 +53,4 @@ fn setup(
         brightness: 500.0, // Good ambient to fill in shadows
         affects_lightmapped_meshes: false,
     });
-
-    // TODO: Once we add colored materials, we'll create them here
-    // and pass them to the terrain
 }

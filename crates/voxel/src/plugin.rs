@@ -137,6 +137,7 @@ pub struct VoxelTerrainPlugin;
 impl Plugin for VoxelTerrainPlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_systems(Startup, setup_texture_atlas)
             .add_systems(Update, (
                 initialize_terrain,
                 update_terrain_lod,
@@ -144,6 +145,31 @@ impl Plugin for VoxelTerrainPlugin {
                 cleanup_terrain_chunks,
             ).chain());
     }
+}
+
+/// Resource holding the shared texture atlas
+#[derive(Resource)]
+struct VoxelAtlas {
+    material: Handle<StandardMaterial>,
+}
+
+/// Setup texture atlas on startup
+fn setup_texture_atlas(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    info!("Generating voxel texture atlas...");
+    let atlas_image = crate::atlas::generate_atlas();
+    let atlas_texture = images.add(atlas_image);
+
+    let material = materials.add(StandardMaterial {
+        base_color_texture: Some(atlas_texture),
+        perceptual_roughness: 0.8,
+        ..default()
+    });
+
+    commands.insert_resource(VoxelAtlas { material });
 }
 
 /// Marker component for terrain that has been initialized
@@ -298,7 +324,7 @@ fn update_heightmap_lod(
 fn spawn_terrain_chunks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    atlas: Option<Res<VoxelAtlas>>,
     mut terrain_query: Query<(&VoxelTerrain, &mut TerrainLodManager)>,
     camera_query: Query<&Transform, With<Camera3d>>,
 ) {
@@ -310,10 +336,10 @@ fn spawn_terrain_chunks(
     for (terrain, mut lod_manager) in &mut terrain_query {
         match &mut *lod_manager {
             TerrainLodManager::Heightmap { manager: chunks, .. } => {
-                spawn_heightmap_chunks(terrain, chunks, &mut commands, &mut meshes, &mut materials);
+                spawn_heightmap_chunks(terrain, chunks, &atlas, &mut commands, &mut meshes);
             },
             TerrainLodManager::Octree { manager } => {
-                spawn_octree_chunks(terrain, manager, camera_pos, &mut commands, &mut meshes, &mut materials);
+                spawn_octree_chunks(terrain, manager, camera_pos, &atlas, &mut commands, &mut meshes);
             },
         }
     }
@@ -323,22 +349,22 @@ fn spawn_terrain_chunks(
 fn spawn_heightmap_chunks(
     terrain: &VoxelTerrain,
     chunks: &mut ChunkManager,
+    atlas: &Option<Res<VoxelAtlas>>,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
 ) {
     let settings = &terrain.lod_settings;
     let region_size = terrain.region_size;
 
-    // Get or create material
-    // Use white base color so vertex colors show through
-    let material = terrain.material.clone().unwrap_or_else(|| {
-        materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            perceptual_roughness: 0.8,
-            ..default()
-        })
-    });
+    // Use terrain-specific material, or fall back to atlas material
+    let material = if let Some(mat) = &terrain.material {
+        mat.clone()
+    } else if let Some(atlas_res) = atlas {
+        atlas_res.material.clone()
+    } else {
+        warn!("No material available for terrain chunks - atlas not initialized yet");
+        return;
+    };
 
     // Find regions that need chunk entities spawned
     let regions_to_spawn: Vec<_> = chunks.regions()
@@ -391,22 +417,22 @@ fn spawn_octree_chunks(
     terrain: &VoxelTerrain,
     octree: &mut OctreeManager,
     camera_pos: Vec3,
+    atlas: &Option<Res<VoxelAtlas>>,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
 ) {
     // Update octree (subdivide/merge based on camera)
     let _coords_to_spawn = octree.update(camera_pos);
 
-    // Get or create material
-    // Use white base color so vertex colors show through
-    let material = terrain.material.clone().unwrap_or_else(|| {
-        materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            perceptual_roughness: 0.8,
-            ..default()
-        })
-    });
+    // Use terrain-specific material, or fall back to atlas material
+    let material = if let Some(mat) = &terrain.material {
+        mat.clone()
+    } else if let Some(atlas_res) = atlas {
+        atlas_res.material.clone()
+    } else {
+        warn!("No material available for terrain chunks - atlas not initialized yet");
+        return;
+    };
 
     // Spawn chunks for leaf nodes that don't have entities
     let nodes_to_spawn: Vec<_> = octree.nodes()
