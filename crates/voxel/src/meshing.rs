@@ -256,17 +256,14 @@ fn add_quad(
         let v_world = corner[v_axis];
 
         // Map world position to texture space (texture tiles every TEXTURE_WORLD_SIZE)
-        let u_uv = u_world / TEXTURE_WORLD_SIZE;
-        let v_uv = v_world / TEXTURE_WORLD_SIZE;
+        // Add small epsilon to avoid fract(1.0) = 0.0 edge case
+        const EPSILON: f32 = 0.0001;
+        let u_uv = (u_world / TEXTURE_WORLD_SIZE + EPSILON).fract();
+        let v_uv = (v_world / TEXTURE_WORLD_SIZE + EPSILON).fract();
 
-        // Tile within 0-1 range using fract, but handle edge case where uv == 1.0
-        // For a face from 0.0 to 0.25, we want UVs 0.0 to 1.0, not 0.0 to 0.0
-        let u_fract = if u_uv == u_uv.floor() && u_uv > 0.0 { 1.0 } else { u_uv.fract() };
-        let v_fract = if v_uv == v_uv.floor() && v_uv > 0.0 { 1.0 } else { v_uv.fract() };
-
-        // Map to atlas region
-        let u_tiled = u_fract * ATLAS_REGION_WIDTH + atlas_u_start;
-        let v_tiled = v_fract;
+        // Map to atlas region (each material occupies 0.25 of atlas width)
+        let u_tiled = u_uv * ATLAS_REGION_WIDTH + atlas_u_start;
+        let v_tiled = v_uv;
 
         uvs.push([u_tiled, v_tiled]);
     }
