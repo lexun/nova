@@ -22,7 +22,7 @@ pub fn generate_atlas() -> Image {
     fill_material_region(&mut data, 2); // Dirt (brown)
     fill_material_region(&mut data, 3); // Stone (gray)
 
-    Image::new(
+    let mut image = Image::new(
         Extent3d {
             width: ATLAS_WIDTH,
             height: ATLAS_HEIGHT,
@@ -32,7 +32,19 @@ pub fn generate_atlas() -> Image {
         data,
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
-    )
+    );
+
+    // Use Clamp mode - UVs are manually confined to atlas regions
+    // Repeat mode would cause UVs > 1.0 to wrap to wrong materials
+    use bevy::image::{ImageSamplerDescriptor, ImageAddressMode, ImageSampler};
+    image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+        address_mode_u: ImageAddressMode::ClampToEdge,
+        address_mode_v: ImageAddressMode::ClampToEdge,
+        address_mode_w: ImageAddressMode::ClampToEdge,
+        ..default()
+    });
+
+    image
 }
 
 /// Fill a material region in the atlas with procedural texture
@@ -71,6 +83,8 @@ fn noise(x: f32, y: f32, seed: u32) -> f32 {
 }
 
 /// Generate grass texture pixel
+/// Designed for 64×64 texture representing 0.25m (smallest voxel)
+/// Should show just a few grass blades per tile
 fn generate_grass_pixel(x: u32, y: u32) -> [u8; 4] {
     let fx = x as f32;
     let fy = y as f32;
@@ -80,17 +94,20 @@ fn generate_grass_pixel(x: u32, y: u32) -> [u8; 4] {
     let base_g = 0.6;
     let base_b = 0.2;
 
-    // Add noise for variation
-    let n1 = noise(fx * 0.2, fy * 0.2, 100);
-    let n2 = noise(fx * 0.5, fy * 0.5, 200);
+    // Subtle noise for variation (reduced frequency for finer scale)
+    let n1 = noise(fx * 0.1, fy * 0.1, 100);
 
-    // Create darker vertical streaks for grass blades
-    let blade_pattern = (fx * 0.3).sin().abs();
-    let blade = if blade_pattern < 0.2 { -0.1 } else { 0.0 };
+    // Create 2-3 distinct grass blades per 64px tile
+    // Blades should be thin vertical streaks
+    let blade_count = 3.0;
+    let blade_width = 4.0; // pixels
+    let blade_x = (fx % (64.0 / blade_count)) - blade_width / 2.0;
+    let is_blade = blade_x.abs() < blade_width && fy > 10.0; // Start blades partway up
+    let blade = if is_blade { -0.15 } else { 0.0 };
 
-    let r = (base_r + (n1 - 0.5) * 0.1 + blade).clamp(0.0, 1.0);
-    let g = (base_g + (n1 - 0.5) * 0.1 + n2 * 0.05 + blade).clamp(0.0, 1.0);
-    let b = (base_b + (n1 - 0.5) * 0.1 + blade).clamp(0.0, 1.0);
+    let r = (base_r + (n1 - 0.5) * 0.05 + blade).clamp(0.0, 1.0);
+    let g = (base_g + (n1 - 0.5) * 0.05 + blade).clamp(0.0, 1.0);
+    let b = (base_b + (n1 - 0.5) * 0.05 + blade).clamp(0.0, 1.0);
 
     [
         (r * 255.0) as u8,
@@ -131,6 +148,8 @@ fn generate_dirt_pixel(x: u32, y: u32) -> [u8; 4] {
 }
 
 /// Generate stone texture pixel
+/// Designed for 64×64 texture representing 0.25m (smallest voxel)
+/// Should show bold, clear stone grain pattern
 fn generate_stone_pixel(x: u32, y: u32) -> [u8; 4] {
     let fx = x as f32;
     let fy = y as f32;
@@ -138,19 +157,19 @@ fn generate_stone_pixel(x: u32, y: u32) -> [u8; 4] {
     // Base gray color
     let base = 0.5;
 
-    // Noise for general variation
-    let n1 = noise(fx * 0.2, fy * 0.2, 600);
-    let n2 = noise(fx * 0.6, fy * 0.6, 700);
+    // Coarser noise for visible variation at small scale
+    let n1 = noise(fx * 0.15, fy * 0.15, 600);
 
-    // Create crack patterns - rare dark lines
-    let crack1 = noise(fx * 0.15, fy * 0.8, 800);
-    let crack2 = noise(fx * 0.8, fy * 0.15, 900);
-    let is_crack = crack1 > 0.92 || crack2 > 0.92;
+    // Create visible crack/grain patterns
+    // Make cracks more frequent and bolder for visibility
+    let crack1 = noise(fx * 0.2, fy * 0.5, 800);
+    let crack2 = noise(fx * 0.5, fy * 0.2, 900);
+    let is_crack = crack1 > 0.85 || crack2 > 0.85; // Lower threshold = more cracks
 
     let variation = if is_crack {
-        -0.2 // Dark cracks
+        -0.25 // Darker, more visible cracks
     } else {
-        (n1 * 0.4 + n2 * 0.2 - 0.3) * 0.15 // Subtle variation
+        (n1 - 0.5) * 0.2 // More pronounced variation
     };
 
     let value = (base + variation).clamp(0.0, 1.0);

@@ -247,6 +247,7 @@ fn add_quad(
     // Add UVs based on world-space position of each vertex
     // Map to texture atlas region based on voxel type
     const ATLAS_REGION_WIDTH: f32 = 0.25; // Each material occupies 0.25 of atlas width
+    const TEXTURE_WORLD_SIZE: f32 = 0.25; // Texture tiles at smallest voxel size (0.25m)
     let atlas_u_start = get_atlas_u_start(_voxel_type);
 
     for corner in &corners {
@@ -254,10 +255,18 @@ fn add_quad(
         let u_world = corner[u_axis];
         let v_world = corner[v_axis];
 
-        // Tile within the atlas region for this voxel type
-        // Take world coordinate modulo 1.0 to get tiling, then scale to atlas region
-        let u_tiled = (u_world % 1.0).abs() * ATLAS_REGION_WIDTH + atlas_u_start;
-        let v_tiled = (v_world % 1.0).abs();
+        // Map world position to texture space (texture tiles every TEXTURE_WORLD_SIZE)
+        let u_uv = u_world / TEXTURE_WORLD_SIZE;
+        let v_uv = v_world / TEXTURE_WORLD_SIZE;
+
+        // Tile within 0-1 range using fract, but handle edge case where uv == 1.0
+        // For a face from 0.0 to 0.25, we want UVs 0.0 to 1.0, not 0.0 to 0.0
+        let u_fract = if u_uv == u_uv.floor() && u_uv > 0.0 { 1.0 } else { u_uv.fract() };
+        let v_fract = if v_uv == v_uv.floor() && v_uv > 0.0 { 1.0 } else { v_uv.fract() };
+
+        // Map to atlas region
+        let u_tiled = u_fract * ATLAS_REGION_WIDTH + atlas_u_start;
+        let v_tiled = v_fract;
 
         uvs.push([u_tiled, v_tiled]);
     }
