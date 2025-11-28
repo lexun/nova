@@ -49,7 +49,7 @@ fn setup(
 
     let material = materials.add(StandardMaterial {
         base_color_texture: Some(atlas_texture),
-        perceptual_roughness: 0.8,
+        unlit: true,
         ..default()
     });
 

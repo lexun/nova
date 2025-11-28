@@ -149,35 +149,16 @@ fn generate_dirt_pixel(x: u32, y: u32) -> [u8; 4] {
 
 /// Generate stone texture pixel
 /// Designed for 64×64 texture representing 0.25m (smallest voxel)
-/// Should show bold, clear stone grain pattern
+/// Simple 8×8 checkerboard to verify UV mapping
 fn generate_stone_pixel(x: u32, y: u32) -> [u8; 4] {
-    let fx = x as f32;
-    let fy = y as f32;
+    // Create 8×8 checkerboard (each square is 8×8 pixels)
+    let cell_size = 8;
+    let cell_x = x / cell_size;
+    let cell_y = y / cell_size;
 
-    // Base gray color
-    let base = 0.5;
+    let is_white = (cell_x + cell_y) % 2 == 0;
 
-    // Coarser noise for visible variation at small scale
-    let n1 = noise(fx * 0.15, fy * 0.15, 600);
+    let value = if is_white { 200 } else { 80 };
 
-    // Create visible crack/grain patterns
-    // Make cracks more frequent and bolder for visibility
-    let crack1 = noise(fx * 0.2, fy * 0.5, 800);
-    let crack2 = noise(fx * 0.5, fy * 0.2, 900);
-    let is_crack = crack1 > 0.85 || crack2 > 0.85; // Lower threshold = more cracks
-
-    let variation = if is_crack {
-        -0.25 // Darker, more visible cracks
-    } else {
-        (n1 - 0.5) * 0.2 // More pronounced variation
-    };
-
-    let value = (base + variation).clamp(0.0, 1.0);
-
-    [
-        (value * 255.0) as u8,
-        (value * 255.0) as u8,
-        (value * 255.0) as u8,
-        255,
-    ]
+    [value, value, value, 255]
 }

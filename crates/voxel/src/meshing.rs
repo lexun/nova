@@ -256,14 +256,33 @@ fn add_quad(
         let v_world = corner[v_axis];
 
         // Map world position to texture space (texture tiles every TEXTURE_WORLD_SIZE)
-        // Add small epsilon to avoid fract(1.0) = 0.0 edge case
-        const EPSILON: f32 = 0.0001;
-        let u_uv = (u_world / TEXTURE_WORLD_SIZE + EPSILON).fract();
-        let v_uv = (v_world / TEXTURE_WORLD_SIZE + EPSILON).fract();
+        // Use remainder to get 0-1 range, avoiding collapse at boundaries
+        let u_normalized = u_world / TEXTURE_WORLD_SIZE;
+        let v_normalized = v_world / TEXTURE_WORLD_SIZE;
+
+        // Use modulo but handle the case where we want 1.0, not 0.0
+        // For values like 1.0, 2.0, etc., we want them to map near 1.0, not 0.0
+        let u_uv = if (u_normalized - u_normalized.round()).abs() < 0.0001 && u_normalized > 0.0 {
+            0.9999  // Map whole numbers to just below 1.0
+        } else {
+            u_normalized % 1.0
+        };
+
+        let v_uv = if (v_normalized - v_normalized.round()).abs() < 0.0001 && v_normalized > 0.0 {
+            0.9999
+        } else {
+            v_normalized % 1.0
+        };
 
         // Map to atlas region (each material occupies 0.25 of atlas width)
         let u_tiled = u_uv * ATLAS_REGION_WIDTH + atlas_u_start;
         let v_tiled = v_uv;
+
+        // Debug first quad
+        if uvs.len() < 4 {
+            println!("Corner world ({:.3}, {:.3}) -> uv ({:.3}, {:.3}) -> tiled ({:.3}, {:.3})",
+                u_world, v_world, u_uv, v_uv, u_tiled, v_tiled);
+        }
 
         uvs.push([u_tiled, v_tiled]);
     }
