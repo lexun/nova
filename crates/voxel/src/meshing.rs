@@ -244,45 +244,32 @@ fn add_quad(
         colors.push(color);
     }
 
-    // Add UVs based on world-space position of each vertex
-    // Map to texture atlas region based on voxel type
-    const ATLAS_REGION_WIDTH: f32 = 0.25; // Each material occupies 0.25 of atlas width
-    const TEXTURE_WORLD_SIZE: f32 = 0.25; // Texture tiles at smallest voxel size (0.25m)
+    // Add UVs - texture tiles based on quad size in voxel units
+    // Each material occupies 0.25 of atlas width (4 materials total)
+    const ATLAS_REGION_WIDTH: f32 = 0.25;
     let atlas_u_start = get_atlas_u_start(_voxel_type);
 
-    for corner in &corners {
-        // Project 3D position onto 2D UV space using axes perpendicular to face normal
-        let u_world = corner[u_axis];
-        let v_world = corner[v_axis];
+    // Calculate UVs based on quad size (in voxel units)
+    // Each quad tiles the texture based on how many voxels it spans
+    let u_voxels = u_size / _voxel_size;  // How many voxels wide
+    let v_voxels = v_size / _voxel_size;  // How many voxels tall
 
-        // Map world position to texture space (texture tiles every TEXTURE_WORLD_SIZE)
-        // Use remainder to get 0-1 range, avoiding collapse at boundaries
-        let u_normalized = u_world / TEXTURE_WORLD_SIZE;
-        let v_normalized = v_world / TEXTURE_WORLD_SIZE;
+    // UV coordinates for the 4 corners
+    // We want the texture to tile once per voxel
+    let corner_uvs = [
+        [0.0, 0.0],           // Bottom-left
+        [u_voxels, 0.0],      // Bottom-right
+        [u_voxels, v_voxels], // Top-right
+        [0.0, v_voxels],      // Top-left
+    ];
 
-        // Use modulo but handle the case where we want 1.0, not 0.0
-        // For values like 1.0, 2.0, etc., we want them to map near 1.0, not 0.0
-        let u_uv = if (u_normalized - u_normalized.round()).abs() < 0.0001 && u_normalized > 0.0 {
-            0.9999  // Map whole numbers to just below 1.0
-        } else {
-            u_normalized % 1.0
-        };
-
-        let v_uv = if (v_normalized - v_normalized.round()).abs() < 0.0001 && v_normalized > 0.0 {
-            0.9999
-        } else {
-            v_normalized % 1.0
-        };
+    for (i, _corner) in corners.iter().enumerate() {
+        let u_uv = corner_uvs[i][0];
+        let v_uv = corner_uvs[i][1];
 
         // Map to atlas region (each material occupies 0.25 of atlas width)
         let u_tiled = u_uv * ATLAS_REGION_WIDTH + atlas_u_start;
         let v_tiled = v_uv;
-
-        // Debug first quad
-        if uvs.len() < 4 {
-            println!("Corner world ({:.3}, {:.3}) -> uv ({:.3}, {:.3}) -> tiled ({:.3}, {:.3})",
-                u_world, v_world, u_uv, v_uv, u_tiled, v_tiled);
-        }
 
         uvs.push([u_tiled, v_tiled]);
     }
