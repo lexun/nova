@@ -201,39 +201,39 @@ Merge uses hysteresis (+5m) to prevent flickering.
 
 ### Completed Features
 
-#### Octree Epic (nova-aij) - **CLOSED**
+#### Octree Epic - **CLOSED**
 All planned phases completed:
 
-✅ **Phase 1 (nova-aex)**: Core octree data structure
+✅ **Phase 1**: Core octree data structure
 - OctreeNode struct with 3D positioning
 - Subdivision logic (1 → 8 children)
 - Distance-based split/merge decisions
 - Comprehensive test suite (12 tests)
 
-✅ **Phase 2 (nova-68t)**: 3D chunk management
+✅ **Phase 2**: 3D chunk management
 - OctreeManager for tracking nodes
 - Plugin integration with strategy selection
 - Backward compatibility with heightmap mode
 
-✅ **Phase 3 (nova-2rh)**: 3D terrain generation
+✅ **Phase 3**: 3D terrain generation
 - CaveTerrainGenerator with density-based voxel generation
 - Cave carving using 3D noise
 - Material layers based on depth
 
-✅ **Phase 4 (nova-806)**: View-dependent LOD with smart visibility
+✅ **Phase 4**: View-dependent LOD with smart visibility
 - Frustum culling awareness (basic)
 - Visibility toggling instead of immediate despawn
 - Mesh entity management
 
-#### High-Level API (nova-egp) - **PARTIALLY COMPLETE**
+#### High-Level API - **PARTIALLY COMPLETE**
 
 ✅ Completed phases:
-- Phase 1 (nova-cie): LOD configuration with presets
-- Phase 2 (nova-2ad): TerrainGenerator trait
-- Phase 3 (nova-6q8): VoxelTerrain component and plugin
+- Phase 1: LOD configuration with presets
+- Phase 2: TerrainGenerator trait
+- Phase 3: VoxelTerrain component and plugin
 
 ⏸️ Future phase:
-- Phase 4 (nova-7hv): Advanced features (async, multi-instance, infinite streaming)
+- Phase 4: Advanced features (async, multi-instance, infinite streaming)
 
 ### Working Examples
 
@@ -263,7 +263,7 @@ All planned phases completed:
 
 ### Heightmap System Issues
 
-#### OPEN: nova-t5q - Floating Chunks (Chunk Sizing Mismatch)
+#### Floating Chunks (Chunk Sizing Mismatch)
 **Status**: SUPERSEDED by octree implementation
 **Symptom**: In `large_scale_terrain` example, highest LOD chunks appear small with gaps
 **Root Cause**: Chunk mesh size doesn't match spawn spacing
@@ -281,7 +281,7 @@ mesh_size = CHUNK_SIZE × voxel_size               // Actual size
 **Workaround**: Use octree system or avoid production settings with heightmap
 **Long-term Fix**: The octree implementation naturally avoids this issue through proper 3D subdivision
 
-#### OPEN: nova-6gu - Terrain Height Clipping
+#### Terrain Height Clipping
 **Status**: SUPERSEDED by octree implementation
 **Symptom**: Terrain gets cut off at certain height, peaks appear flattened
 **Root Cause**: Chunks fixed at 32³ voxels, height limit depends on voxel size
@@ -379,7 +379,7 @@ let height_voxels = (height_meters / voxel_size) as usize; // Truncates
 
 ### Medium Priority (API Improvements)
 
-#### 4. Multiple Terrain Instances (nova-7hv)
+#### 4. Multiple Terrain Instances
 **Benefit**: Support multiple biomes or separated terrain
 **Implementation**:
 - Per-terrain ChunkManager/OctreeManager tracking
@@ -387,7 +387,7 @@ let height_voxels = (height_meters / voxel_size) as usize; // Truncates
 
 **Estimated Effort**: ~100 LOC, 2-3 hours
 
-#### 5. Infinite Terrain Streaming (nova-7hv)
+#### 5. Infinite Terrain Streaming
 **Benefit**: Minecraft-like endless worlds
 **Implementation**:
 - Remove world bounds constraint
@@ -396,7 +396,7 @@ let height_voxels = (height_meters / voxel_size) as usize; // Truncates
 
 **Estimated Effort**: ~150 LOC, 4-6 hours
 
-#### 6. Async Chunk Generation (nova-7hv)
+#### 6. Async Chunk Generation
 **Benefit**: Smooth framerate during chunk loading
 **Implementation**:
 - Bevy AsyncComputeTaskPool integration
@@ -407,7 +407,7 @@ let height_voxels = (height_meters / voxel_size) as usize; // Truncates
 
 ### Low Priority (Nice to Have)
 
-#### 7. Spherical Terrain (nova-5ge)
+#### 7. Spherical Terrain
 **Status**: Basic cubic sphere mapping exists, needs octree integration
 **Vision**: `VoxelTerrain::spherical(radius)` for planets
 **Challenges**:
@@ -618,20 +618,20 @@ If starting with heightmap and later need 3D:
 ### Issue Tracking
 
 **Closed Epics**:
-- nova-aij: 3D octree-based LOD system (4 phases completed)
+- 3D octree-based LOD system (4 phases completed)
 - All phases: nova-aex, nova-68t, nova-2rh, nova-806
 
 **Open Epics**:
-- nova-egp: Flexible LOD terrain generation system (Phase 4 pending)
+- Flexible LOD terrain generation system (Phase 4 pending)
 
 **Open Issues** (superseded by octree):
-- nova-t5q: Floating chunks in heightmap system
-- nova-6gu: Terrain height clipping in heightmap system
+- Floating chunks in heightmap system
+- Terrain height clipping in heightmap system
 
 **Future Work**:
-- nova-2im: Implement octree as alternative LodStrategy
-- nova-5ge: Apply dynamic LOD to spherical planet surface
-- nova-7hv: Advanced features (async, multi-instance, infinite streaming)
+- Implement octree as alternative LodStrategy
+- Apply dynamic LOD to spherical planet surface
+- Advanced features (async, multi-instance, infinite streaming)
 
 ### Architectural Decisions
 

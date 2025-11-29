@@ -407,7 +407,7 @@ commands.spawn(
 
 ### LOD is Non-Optional
 
-**Key realization** (nova-cbs): For planets visible from space, must support:
+**Key realization**: For planets visible from space, must support:
 - Distant view (orbital): Very low detail, few chunks
 - Medium altitude: Moderate detail
 - Surface: High detail, many chunks
@@ -417,7 +417,7 @@ Without LOD: Either detail is too low from space OR generation is too slow at st
 
 ### Visual Consistency Critical
 
-**"No Man's Sky problem"** (nova-cbs): Distant terrain that doesn't match close-up is immersion-breaking.
+**"No Man's Sky problem"**: Distant terrain that doesn't match close-up is immersion-breaking.
 
 **Solution**: Same procedural generation at all LOD levels. Only resolution changes, not features.
 
@@ -427,14 +427,14 @@ Without LOD: Either detail is too low from space OR generation is too slow at st
 
 ### Immediate Next Steps
 
-1. **Adapt octree LOD to spherical geometry** (nova-5ge)
+1. **Adapt octree LOD to spherical geometry**
    - Apply working octree system to cube-sphere mapping
    - 6 root nodes, one per cube face
    - Distance-based subdivision per face
 
 2. **Address gaps** - Choose approach:
    - Accept gaps as unavoidable with small planets
-   - Move to larger planets + flat chunks (nova-zf7)
+   - Move to larger planets + flat chunks
    - Explore gap-filling geometry or stitching
 
 3. **Variable chunk thickness** - Allow terrain features that exceed 8m vertical range
@@ -461,7 +461,7 @@ commands.spawn(
 ```
 
 **Blocked by**:
-- Spherical octree implementation (nova-5ge)
+- Spherical octree implementation
 - LOD streaming system
 - Robust gap handling strategy
 
@@ -496,21 +496,21 @@ commands.spawn(
 ### Related Beads Issues
 
 **Keep open**:
-- **nova-5ge**: Apply dynamic LOD to spherical planet surface
-- **nova-cbs**: Epic: Dynamic LOD system for planet rendering
-- **nova-dqz**: Document planet rendering geometry considerations (this document)
-- **nova-v6e**: Rethink planet rendering approach
-- **nova-5gp**: Experiment: Single sphere mesh with procedural displacement
-- **nova-zf7**: Experiment: Large planet with flat chunk generation
+- Apply dynamic LOD to spherical planet surface
+- Epic: Dynamic LOD system for planet rendering
+- Document planet rendering geometry considerations (this document)
+- Rethink planet rendering approach
+- Experiment: Single sphere mesh with procedural displacement
+- Experiment: Large planet with flat chunk generation
 
 **In progress**:
-- **nova-2gi**: Build walkable procedural planet prototype
-- **nova-8qz**: Procedurally generate and render a small walkable planet
-- **nova-1zp**: Design decision: Multi-resolution voxel LOD for planetary-scale worlds
+- Build walkable procedural planet prototype
+- Procedurally generate and render a small walkable planet
+- Design decision: Multi-resolution voxel LOD for planetary-scale worlds
 
 **Completed** (provide foundation):
-- **nova-xxm**: Fix voxel generation to use radial distance from planet center ✅
-- **nova-ae4**: Fix chunk positioning and orientation on planet surface ✅
+- Fix voxel generation to use radial distance from planet center ✅
+- Fix chunk positioning and orientation on planet surface ✅
 
 ### Integration with Existing Systems
 

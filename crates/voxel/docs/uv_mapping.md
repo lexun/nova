@@ -418,17 +418,17 @@ To enable atlas support:
 ## Related Issues
 
 **Closed**:
-- nova-89e: Fix UV mapping to work with texture atlas without stretching
-- nova-k2q: Fix UV tiling issues with atlas using per-material greedy meshing
-- nova-9ni: Fix UV mapping stretching in greedy meshing algorithm
-- nova-spw: Create texture stretching test examples
-- nova-zu1: Generate procedural textures for voxel atlas at runtime
-- nova-m4c: Implement texture atlas support in voxel meshing
+- Fix UV mapping to work with texture atlas without stretching
+- Fix UV tiling issues with atlas using per-material greedy meshing
+- Fix UV mapping stretching in greedy meshing algorithm
+- Create texture stretching test examples
+- Generate procedural textures for voxel atlas at runtime
+- Implement texture atlas support in voxel meshing
 
 **In Progress**:
-- nova-e2p: Build UV mapping from fundamentals with debuggable test cases
-- nova-3a7: Build UV mapping from fundamentals with debuggable test cases (duplicate)
-- nova-49e: UV mapping: texture tiles at fixed smallest-voxel size
+- Build UV mapping from fundamentals with debuggable test cases
+- Build UV mapping from fundamentals with debuggable test cases (duplicate)
+- UV mapping: texture tiles at fixed smallest-voxel size
 
 ## References
 
