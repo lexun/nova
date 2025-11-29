@@ -2,7 +2,6 @@
 //!
 //! This creates the atlas texture and immediately saves it, then exits.
 
-use bevy::prelude::*;
 use voxel::atlas::generate_atlas;
 
 fn main() {
