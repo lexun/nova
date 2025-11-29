@@ -1,4 +1,11 @@
-//! # Test: Dynamic LOD Terrain System
+//! # Advanced Example: Manual LOD Implementation
+//!
+//! **NOTE**: This is an advanced example showing LOD internals.
+//! **For typical usage, see `simple_terrain.rs` or `octree_terrain.rs` instead.**
+//!
+//! This example demonstrates low-level manual LOD management using `ChunkManager`
+//! and custom distance-based region spawning. The high-level `VoxelTerrainPlugin`
+//! handles all of this automatically.
 //!
 //! Demonstrates real-time Level of Detail (LOD) transitions based on camera distance.
 //! Large terrain area where chunks spawn/despawn dynamically as you move around.
