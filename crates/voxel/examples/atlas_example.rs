@@ -1,7 +1,11 @@
-//! # Test: Procedural Terrain Generation
+//! # Texture Atlas Example
 //!
-//! Generates a coherent multi-chunk terrain using continuous noise.
-//! Chunks seamlessly connect with matching edges.
+//! Demonstrates texture atlas usage with multi-chunk terrain.
+//! Shows how to generate and apply the procedural texture atlas
+//! to voxel meshes across multiple chunks.
+//!
+//! This example generates a 5×5 grid of terrain chunks with continuous
+//! noise and applies the texture atlas to all chunks.
 //!
 //! Controls:
 //! - WASD: Move camera
