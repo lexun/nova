@@ -369,9 +369,61 @@ AI vision models have specific limitations when analyzing 3D rendered scenes:
 
 **Best Practice**: After implementing any graphics fix, capture a screenshot and explicitly ask user to verify visual correctness before claiming success.
 
-## Texture Atlas Support (Future)
+## Texture Atlas Support - Known Limitations
 
-The current implementation uses GPU Repeat mode with full [0.0, N] UV ranges. For texture atlas support, the following modifications will be needed:
+**CRITICAL LIMITATION DISCOVERED**: Texture atlases are fundamentally incompatible with tiling in greedy-meshed voxel engines.
+
+### The Tiling Problem
+
+**Issue**: GPU Repeat mode wraps the ENTIRE texture, not individual atlas regions.
+
+For a 2-voxel-wide merged quad with atlas region at U ∈ [0.8, 1.0]:
+- UV corners are [0, 2] (need 2 tiles)
+- After modulo: `2.0 % 1.0 = 0.0`
+- Maps to [0.8, 0.8] - zero width! Texture collapses.
+
+**Without modulo**: UVs extend beyond region boundary
+- UV corners [0, 2] → atlas coords [0.8, 1.2]
+- At 1.2, GPU wraps to 0.2 (start of atlas, wrong region!)
+- Shows texture from different material.
+
+**Clamping approach**: Prevents wrapping but stretches
+- Clamp UVs to [0.8, 1.0] range
+- Creates stretched texture instead of tiling
+- What we're currently seeing in grass tests.
+
+### Why This Happens
+
+Greedy meshing merges multiple voxels into single quads. For a 2×1 grass block:
+- Creates one 2×1 quad (not two 1×1 quads)
+- UVs need to tile 2× horizontally: [0, 2]
+- With atlas, must fit within region: [0.8, 1.0]
+- Can't tile 2 textures in 0.2 atlas space!
+
+### Solutions
+
+1. **Texture Arrays** (BLOCKED - upstream Bevy bug)
+   - Each texture is separate layer in 3D array
+   - GPU Repeat works per-layer
+   - Industry standard solution
+   - See task: `lpo9xw6gt76x867k052j`
+
+2. **Separate Textures** (INTERIM SOLUTION)
+   - Each material uses its own 64×64 texture
+   - GPU Repeat works normally
+   - More draw calls but correct rendering
+   - Acceptable performance for current scale
+
+3. **Custom Shader** (Complex, not worth it)
+   - Manual atlas tiling in fragment shader
+   - Significant development effort
+   - Better to wait for texture arrays
+
+### Current Implementation Status
+
+**As of 2025-11-29**: Using separate textures as interim solution until texture arrays are available.
+
+The current implementation uses GPU Repeat mode with full [0.0, N] UV ranges. Texture atlas support was attempted but has fundamental limitations:
 
 ### Atlas Layout
 

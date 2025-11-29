@@ -92,6 +92,7 @@ use bevy::prelude::*;
 // Core modules
 pub mod chunk;
 pub mod atlas;
+pub mod textures;
 pub mod meshing;
 
 // System modules

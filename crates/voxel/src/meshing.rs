@@ -2,10 +2,12 @@
 //!
 //! Implements greedy meshing algorithm to convert voxel chunks into optimized triangle meshes.
 
+use crate::atlas::FaceDir;
 use crate::{Chunk, VoxelType, CHUNK_SIZE};
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
+use std::collections::HashMap;
 
 /// Get color for a voxel type (RGBA in linear color space)
 fn voxel_color(voxel_type: VoxelType) -> [f32; 4] {
@@ -15,6 +17,46 @@ fn voxel_color(voxel_type: VoxelType) -> [f32; 4] {
         VoxelType::Dirt => [0.5, 0.35, 0.2, 1.0], // Brown
         VoxelType::Stone => [0.5, 0.5, 0.5, 1.0], // Gray
     }
+}
+
+/// Material key for grouping faces by texture
+/// Combines voxel type and face direction to determine which texture to use
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct MaterialKey {
+    pub voxel_type: VoxelType,
+    pub face_dir: FaceDir,
+}
+
+impl MaterialKey {
+    pub fn new(voxel_type: VoxelType, face_dir: FaceDir) -> Self {
+        Self { voxel_type, face_dir }
+    }
+}
+
+/// Generate multiple meshes from a voxel chunk, grouped by material
+/// Returns a HashMap where each key represents a unique material (voxel_type + face_dir)
+/// and the value is the mesh for all quads using that material.
+pub fn generate_chunk_meshes(chunk: &Chunk, voxel_size: f32) -> HashMap<MaterialKey, Mesh> {
+    // Separate mesh data for each material
+    let mut mesh_builders: HashMap<MaterialKey, MeshBuilder> = HashMap::new();
+
+    // For each axis (X, Y, Z) and direction (positive, negative)
+    for axis in 0..3 {
+        for direction in [false, true] {
+            generate_axis_meshes(
+                chunk,
+                axis,
+                direction,
+                voxel_size,
+                &mut mesh_builders,
+            );
+        }
+    }
+
+    // Convert builders to actual meshes
+    mesh_builders.into_iter()
+        .map(|(key, builder)| (key, builder.build()))
+        .collect()
 }
 
 /// Generate a mesh from a voxel chunk using greedy meshing
@@ -55,6 +97,42 @@ pub fn generate_chunk_mesh(chunk: &Chunk, voxel_size: f32) -> Mesh {
     mesh.insert_indices(Indices::U32(indices));
 
     mesh
+}
+
+/// Helper struct to build mesh data
+struct MeshBuilder {
+    positions: Vec<[f32; 3]>,
+    normals: Vec<[f32; 3]>,
+    uvs: Vec<[f32; 2]>,
+    colors: Vec<[f32; 4]>,
+    indices: Vec<u32>,
+}
+
+impl MeshBuilder {
+    fn new() -> Self {
+        Self {
+            positions: Vec::new(),
+            normals: Vec::new(),
+            uvs: Vec::new(),
+            colors: Vec::new(),
+            indices: Vec::new(),
+        }
+    }
+
+    fn build(self) -> Mesh {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, self.colors);
+        mesh.insert_indices(Indices::U32(self.indices));
+
+        mesh
+    }
 }
 
 /// Generate mesh for one axis and direction using greedy meshing
@@ -166,6 +244,13 @@ fn generate_axis_mesh(
                     let u_size = width as f32 * voxel_size;
                     let v_size = height as f32 * voxel_size;
 
+                    // Determine face direction for texture selection
+                    let face_dir = match (axis, back_face) {
+                        (1, false) => FaceDir::Top,    // Y+ (top)
+                        (1, true) => FaceDir::Bottom,  // Y- (bottom)
+                        _ => FaceDir::Side,            // X or Z faces
+                    };
+
                     add_quad(
                         axis,
                         u_axis,
@@ -178,6 +263,7 @@ fn generate_axis_mesh(
                         v_size,
                         voxel_size,
                         voxel_type,
+                        face_dir,
                         positions,
                         normals,
                         uvs,
@@ -187,6 +273,245 @@ fn generate_axis_mesh(
                 }
             }
         }
+    }
+}
+
+/// Generate meshes for one axis and direction, grouped by material
+fn generate_axis_meshes(
+    chunk: &Chunk,
+    axis: usize,
+    back_face: bool,
+    voxel_size: f32,
+    mesh_builders: &mut HashMap<MaterialKey, MeshBuilder>,
+) {
+    // Determine axis permutations
+    let (u_axis, v_axis) = match axis {
+        0 => (1, 2), // X axis: use Y and Z
+        1 => (0, 2), // Y axis: use X and Z
+        _ => (0, 1), // Z axis: use X and Y
+    };
+
+    // Direction offset
+    let offset = if back_face { 0 } else { 1 };
+
+    // Scan through each slice along the axis
+    for d in 0..CHUNK_SIZE {
+        let mut mask = [[None; CHUNK_SIZE]; CHUNK_SIZE];
+
+        // Build mask for this slice
+        for v in 0..CHUNK_SIZE {
+            for u in 0..CHUNK_SIZE {
+                let mut pos = [0; 3];
+                pos[axis] = d;
+                pos[u_axis] = u;
+                pos[v_axis] = v;
+
+                let voxel = chunk.get_voxel(pos[0], pos[1], pos[2]);
+
+                // Check if we should render a face here
+                if let Some(voxel) = voxel {
+                    if voxel.voxel_type != VoxelType::Air && voxel.density > 0 {
+                        // Check if there's an adjacent voxel blocking this face
+                        let mut adj_pos = pos;
+                        if back_face {
+                            if d > 0 {
+                                adj_pos[axis] = d - 1;
+                            } else {
+                                // Edge of chunk, render face
+                                mask[v][u] = Some(voxel.voxel_type);
+                                continue;
+                            }
+                        } else {
+                            if d < CHUNK_SIZE - 1 {
+                                adj_pos[axis] = d + 1;
+                            } else {
+                                // Edge of chunk, render face
+                                mask[v][u] = Some(voxel.voxel_type);
+                                continue;
+                            }
+                        }
+
+                        let adjacent = chunk.get_voxel(adj_pos[0], adj_pos[1], adj_pos[2]);
+                        let is_face_visible = adjacent
+                            .map(|v| v.voxel_type == VoxelType::Air || v.density == 0)
+                            .unwrap_or(true);
+
+                        if is_face_visible {
+                            mask[v][u] = Some(voxel.voxel_type);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Greedy meshing: merge adjacent faces of same type
+        for v in 0..CHUNK_SIZE {
+            for u in 0..CHUNK_SIZE {
+                if let Some(voxel_type) = mask[v][u] {
+                    // Found a face, expand it greedily
+
+                    // Expand in u direction
+                    let mut width = 1;
+                    while u + width < CHUNK_SIZE && mask[v][u + width] == Some(voxel_type) {
+                        width += 1;
+                    }
+
+                    // Expand in v direction
+                    let mut height = 1;
+                    'outer: while v + height < CHUNK_SIZE {
+                        for du in 0..width {
+                            if mask[v + height][u + du] != Some(voxel_type) {
+                                break 'outer;
+                            }
+                        }
+                        height += 1;
+                    }
+
+                    // Clear the mask for this rectangle
+                    for dv in 0..height {
+                        for du in 0..width {
+                            mask[v + dv][u + du] = None;
+                        }
+                    }
+
+                    // Generate quad for this rectangle
+                    let d_pos = (d as f32 + offset as f32) * voxel_size;
+                    let u_pos = u as f32 * voxel_size;
+                    let v_pos = v as f32 * voxel_size;
+                    let u_size = width as f32 * voxel_size;
+                    let v_size = height as f32 * voxel_size;
+
+                    // Determine face direction for texture selection
+                    let face_dir = match (axis, back_face) {
+                        (1, false) => FaceDir::Top,    // Y+ (top)
+                        (1, true) => FaceDir::Bottom,  // Y- (bottom)
+                        _ => FaceDir::Side,            // X or Z faces
+                    };
+
+                    // Get or create builder for this material
+                    let material_key = MaterialKey::new(voxel_type, face_dir);
+                    let builder = mesh_builders.entry(material_key)
+                        .or_insert_with(MeshBuilder::new);
+
+                    add_quad_to_builder(
+                        builder,
+                        axis,
+                        u_axis,
+                        v_axis,
+                        back_face,
+                        d_pos,
+                        u_pos,
+                        v_pos,
+                        u_size,
+                        v_size,
+                        voxel_size,
+                        voxel_type,
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Add a quad to a mesh builder (simplified version without atlas offsets)
+#[allow(clippy::too_many_arguments)]
+fn add_quad_to_builder(
+    builder: &mut MeshBuilder,
+    axis: usize,
+    u_axis: usize,
+    v_axis: usize,
+    back_face: bool,
+    d_pos: f32,
+    u_pos: f32,
+    v_pos: f32,
+    u_size: f32,
+    v_size: f32,
+    voxel_size: f32,
+    voxel_type: VoxelType,
+) {
+    let base_index = builder.positions.len() as u32;
+
+    // Calculate the 4 corners of the quad
+    let mut corners = [[0.0; 3]; 4];
+    for corner in &mut corners {
+        corner[axis] = d_pos;
+    }
+
+    corners[0][u_axis] = u_pos;
+    corners[0][v_axis] = v_pos;
+
+    corners[1][u_axis] = u_pos + u_size;
+    corners[1][v_axis] = v_pos;
+
+    corners[2][u_axis] = u_pos + u_size;
+    corners[2][v_axis] = v_pos + v_size;
+
+    corners[3][u_axis] = u_pos;
+    corners[3][v_axis] = v_pos + v_size;
+
+    // Calculate normal
+    let mut normal = [0.0; 3];
+    normal[axis] = if back_face { -1.0 } else { 1.0 };
+
+    // Get color for this voxel type
+    let color = voxel_color(voxel_type);
+
+    // Add vertices
+    for corner in &corners {
+        builder.positions.push(*corner);
+        builder.normals.push(normal);
+        builder.colors.push(color);
+    }
+
+    // Calculate UVs for tiling (NO atlas offsets)
+    // Each voxel face shows one complete texture tile
+    // Greedy-meshed quads tile the texture (e.g., 4×1 voxels = 4×1 texture tiles)
+
+    // For X-axis faces, swap u/v to align texture space correctly
+    let (texture_u_voxels, texture_v_voxels) = if axis == 0 {
+        (v_size / voxel_size, u_size / voxel_size)
+    } else {
+        (u_size / voxel_size, v_size / voxel_size)
+    };
+
+    // UV coordinates for the 4 corners
+    // V is flipped because image row 0 is at top, but UV V=0 is at bottom
+    let corner_uvs = [
+        [0.0, texture_v_voxels],              // Bottom-left (V flipped)
+        [texture_u_voxels, texture_v_voxels], // Bottom-right (V flipped)
+        [texture_u_voxels, 0.0],              // Top-right (V flipped)
+        [0.0, 0.0],                           // Top-left (V flipped)
+    ];
+
+    // Apply UV orientation correction
+    let (u_corrected, v_corrected) = correct_uv_orientation(axis, back_face, &corner_uvs);
+
+    // Add UVs directly (no atlas mapping needed)
+    for i in 0..4 {
+        builder.uvs.push([u_corrected[i], v_corrected[i]]);
+    }
+
+    // Add indices (two triangles)
+    let needs_flip = (axis == 1) ^ back_face;
+
+    if needs_flip {
+        builder.indices.extend_from_slice(&[
+            base_index,
+            base_index + 2,
+            base_index + 1,
+            base_index,
+            base_index + 3,
+            base_index + 2,
+        ]);
+    } else {
+        builder.indices.extend_from_slice(&[
+            base_index,
+            base_index + 1,
+            base_index + 2,
+            base_index,
+            base_index + 2,
+            base_index + 3,
+        ]);
     }
 }
 
@@ -204,6 +529,7 @@ fn add_quad(
     v_size: f32,
     _voxel_size: f32,
     _voxel_type: VoxelType,
+    _face_dir: FaceDir,
     positions: &mut Vec<[f32; 3]>,
     normals: &mut Vec<[f32; 3]>,
     uvs: &mut Vec<[f32; 2]>,
@@ -273,10 +599,8 @@ fn add_quad(
     // Without this, some faces show mirrored textures due to different axis mappings
     let (u_corrected, v_corrected) = correct_uv_orientation(axis, back_face, &corner_uvs);
 
-
+    // Add UVs directly (no atlas mapping - use simple tiling)
     for i in 0..4 {
-        // Direct UV mapping - GPU Repeat mode handles tiling
-        // TODO: For atlas support, scale U by ATLAS_REGION_WIDTH and add atlas_u_start offset
         uvs.push([u_corrected[i], v_corrected[i]]);
     }
 
@@ -306,18 +630,6 @@ fn add_quad(
     }
 }
 
-/// Get the starting U coordinate for a voxel type's region in the texture atlas
-/// Atlas layout: [Air | Grass | Dirt | Stone] each 0.25 wide
-/// TODO: Re-enable when adding atlas support
-#[allow(dead_code)]
-fn get_atlas_u_start(voxel_type: VoxelType) -> f32 {
-    match voxel_type {
-        VoxelType::Air => 0.0,
-        VoxelType::Grass => 0.25,
-        VoxelType::Dirt => 0.5,
-        VoxelType::Stone => 0.75,
-    }
-}
 
 /// Correct UV orientation to ensure consistent texture direction across all faces
 ///

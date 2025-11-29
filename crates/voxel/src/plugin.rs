@@ -147,29 +147,43 @@ impl Plugin for VoxelTerrainPlugin {
     }
 }
 
-/// Resource holding the shared texture atlas
+/// Resource holding the material handles
 #[derive(Resource)]
-struct VoxelAtlas {
-    material: Handle<StandardMaterial>,
+struct VoxelMaterials {
+    materials: std::collections::HashMap<crate::meshing::MaterialKey, Handle<StandardMaterial>>,
 }
 
-/// Setup texture atlas on startup
+/// Setup material textures on startup
 fn setup_texture_atlas(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    info!("Generating voxel texture atlas...");
-    let atlas_image = crate::atlas::generate_atlas();
-    let atlas_texture = images.add(atlas_image);
+    use crate::atlas::FaceDir;
+    use crate::meshing::MaterialKey;
+    use crate::VoxelType;
 
-    let material = materials.add(StandardMaterial {
-        base_color_texture: Some(atlas_texture),
-        perceptual_roughness: 0.8,
-        ..default()
+    info!("Generating voxel material textures...");
+    let textures = crate::textures::generate_material_textures(&mut images);
+
+    // Create StandardMaterial for each possible voxel_type + face_dir combination
+    let mut material_map = std::collections::HashMap::new();
+
+    for voxel_type in [VoxelType::Stone, VoxelType::Dirt, VoxelType::Grass] {
+        for face_dir in [FaceDir::Top, FaceDir::Bottom, FaceDir::Side] {
+            let texture = textures.get_texture(voxel_type, face_dir);
+            let material = materials.add(StandardMaterial {
+                base_color_texture: Some(texture),
+                perceptual_roughness: 0.8,
+                ..default()
+            });
+            material_map.insert(MaterialKey::new(voxel_type, face_dir), material);
+        }
+    }
+
+    commands.insert_resource(VoxelMaterials {
+        materials: material_map,
     });
-
-    commands.insert_resource(VoxelAtlas { material });
 }
 
 /// Marker component for terrain that has been initialized
@@ -324,7 +338,7 @@ fn update_heightmap_lod(
 fn spawn_terrain_chunks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    atlas: Option<Res<VoxelAtlas>>,
+    voxel_materials: Option<Res<VoxelMaterials>>,
     mut terrain_query: Query<(&VoxelTerrain, &mut TerrainLodManager)>,
     camera_query: Query<&Transform, With<Camera3d>>,
 ) {
@@ -336,10 +350,10 @@ fn spawn_terrain_chunks(
     for (terrain, mut lod_manager) in &mut terrain_query {
         match &mut *lod_manager {
             TerrainLodManager::Heightmap { manager: chunks, .. } => {
-                spawn_heightmap_chunks(terrain, chunks, &atlas, &mut commands, &mut meshes);
+                spawn_heightmap_chunks(terrain, chunks, &voxel_materials, &mut commands, &mut meshes);
             },
             TerrainLodManager::Octree { manager } => {
-                spawn_octree_chunks(terrain, manager, camera_pos, &atlas, &mut commands, &mut meshes);
+                spawn_octree_chunks(terrain, manager, camera_pos, &voxel_materials, &mut commands, &mut meshes);
             },
         }
     }
@@ -349,20 +363,16 @@ fn spawn_terrain_chunks(
 fn spawn_heightmap_chunks(
     terrain: &VoxelTerrain,
     chunks: &mut ChunkManager,
-    atlas: &Option<Res<VoxelAtlas>>,
+    voxel_materials: &Option<Res<VoxelMaterials>>,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
 ) {
     let settings = &terrain.lod_settings;
     let region_size = terrain.region_size;
 
-    // Use terrain-specific material, or fall back to atlas material
-    let material = if let Some(mat) = &terrain.material {
-        mat.clone()
-    } else if let Some(atlas_res) = atlas {
-        atlas_res.material.clone()
-    } else {
-        warn!("No material available for terrain chunks - atlas not initialized yet");
+    // Get material map or warn if not available
+    let Some(voxel_materials_res) = voxel_materials else {
+        warn!("No material available for terrain chunks - materials not initialized yet");
         return;
     };
 
@@ -393,17 +403,21 @@ fn spawn_heightmap_chunks(
                 // Generate voxel data
                 let chunk = terrain.generator.generate_chunk(chunk_offset, voxel_size);
 
-                // Generate mesh
-                let mesh = crate::meshing::generate_chunk_mesh(&chunk, voxel_size);
+                // Generate multiple meshes grouped by material
+                let meshes_by_material = crate::meshing::generate_chunk_meshes(&chunk, voxel_size);
 
-                // Spawn entity
-                let entity = commands.spawn((
-                    Mesh3d(meshes.add(mesh)),
-                    MeshMaterial3d(material.clone()),
-                    Transform::from_translation(chunk_offset),
-                )).id();
+                // Spawn one entity per material
+                for (material_key, mesh) in meshes_by_material {
+                    if let Some(material) = voxel_materials_res.materials.get(&material_key) {
+                        let entity = commands.spawn((
+                            Mesh3d(meshes.add(mesh)),
+                            MeshMaterial3d(material.clone()),
+                            Transform::from_translation(chunk_offset),
+                        )).id();
 
-                chunk_entities.push(entity);
+                        chunk_entities.push(entity);
+                    }
+                }
             }
         }
 
@@ -417,20 +431,16 @@ fn spawn_octree_chunks(
     terrain: &VoxelTerrain,
     octree: &mut OctreeManager,
     camera_pos: Vec3,
-    atlas: &Option<Res<VoxelAtlas>>,
+    voxel_materials: &Option<Res<VoxelMaterials>>,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
 ) {
     // Update octree (subdivide/merge based on camera)
     let _coords_to_spawn = octree.update(camera_pos);
 
-    // Use terrain-specific material, or fall back to atlas material
-    let material = if let Some(mat) = &terrain.material {
-        mat.clone()
-    } else if let Some(atlas_res) = atlas {
-        atlas_res.material.clone()
-    } else {
-        warn!("No material available for terrain chunks - atlas not initialized yet");
+    // Get material map or warn if not available
+    let Some(voxel_materials_res) = voxel_materials else {
+        warn!("No material available for terrain chunks - materials not initialized yet");
         return;
     };
 
@@ -447,19 +457,29 @@ fn spawn_octree_chunks(
         // Generate voxel data
         let chunk = terrain.generator.generate_chunk(world_pos, voxel_size);
 
-        // Generate mesh
-        let mesh = crate::meshing::generate_chunk_mesh(&chunk, voxel_size);
+        // Generate multiple meshes grouped by material
+        let meshes_by_material = crate::meshing::generate_chunk_meshes(&chunk, voxel_size);
 
-        // Spawn entity
-        let entity = commands.spawn((
-            Mesh3d(meshes.add(mesh)),
-            MeshMaterial3d(material.clone()),
-            Transform::from_translation(world_pos),
-        )).id();
+        // Spawn one entity per material (only store first entity in octree node)
+        let mut first_entity = None;
+        for (material_key, mesh) in meshes_by_material {
+            if let Some(material) = voxel_materials_res.materials.get(&material_key) {
+                let entity = commands.spawn((
+                    Mesh3d(meshes.add(mesh)),
+                    MeshMaterial3d(material.clone()),
+                    Transform::from_translation(world_pos),
+                )).id();
 
-        // Store entity in octree node
+                if first_entity.is_none() {
+                    first_entity = Some(entity);
+                }
+            }
+        }
+
+        // Store first entity in octree node (octree only tracks one entity per node)
+        // TODO: Update octree to track multiple entities per node
         if let Some(node) = octree.get_node_mut(coord) {
-            node.chunk_entity = Some(entity);
+            node.chunk_entity = first_entity;
         }
     }
 }

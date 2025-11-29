@@ -3,7 +3,7 @@
 //! Provides the fundamental types for representing voxel data in fixed-size chunks.
 
 /// Types of voxel materials
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum VoxelType {
     Air,
     Stone,
