@@ -175,13 +175,15 @@ fn camera_control(
             println!("\n[2] Viewing X- face (left) - 2 Fs stacked vertically");
         } else if keyboard.just_pressed(KeyCode::Digit3) {
             // Y+ face (top)
+            // Up vector points north (-Z) so text is readable from north
             *transform = Transform::from_xyz(0.5, distance + 1.0, 0.5)
-                .looking_at(tower_center, Vec3::Z);
+                .looking_at(tower_center, Vec3::NEG_Z);
             println!("\n[3] Viewing Y+ face (top) - 1 F");
         } else if keyboard.just_pressed(KeyCode::Digit4) {
             // Y- face (bottom)
+            // Up vector points north (+Z from below) so text is readable from north
             *transform = Transform::from_xyz(0.5, -distance + 1.0, 0.5)
-                .looking_at(tower_center, Vec3::NEG_Z);
+                .looking_at(tower_center, Vec3::Z);
             println!("\n[4] Viewing Y- face (bottom) - 1 F");
         } else if keyboard.just_pressed(KeyCode::Digit5) {
             // Z+ face (front)

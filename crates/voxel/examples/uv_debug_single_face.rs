@@ -4,11 +4,20 @@
 //! 1 = X+ (right), 2 = X- (left)
 //! 3 = Y+ (top), 4 = Y- (bottom)
 //! 5 = Z+ (front), 6 = Z- (back)
+//!
+//! Or use fly camera controls:
+//! - Click to capture mouse
+//! - Escape to release mouse
+//! - WASD: Move horizontally
+//! - QE: Move up/down
+//! - Mouse: Look around
 
 use bevy::prelude::*;
 use bevy::asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
+use bevy_brp_extras::BrpExtrasPlugin;
+use engine::{FlyCameraController, FlyCameraPlugin};
 use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
 
 #[derive(Component)]
@@ -16,10 +25,8 @@ struct DebugCamera;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            bevy_brp_extras::BrpExtrasPlugin,
-        ))
+        .add_plugins(DefaultPlugins)
+        .add_plugins((BrpExtrasPlugin, FlyCameraPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, camera_control)
         .run();
@@ -33,13 +40,15 @@ fn setup(
 ) {
     println!("\n=== UV Debug: Single Face Inspection ===");
     println!("Texture: Letter 'F' - should always appear upright");
-    println!("\nPress number keys to view each face:");
-    println!("  1 = X+ face (right side)");
-    println!("  2 = X- face (left side)");
-    println!("  3 = Y+ face (top)");
-    println!("  4 = Y- face (bottom)");
-    println!("  5 = Z+ face (front)");
-    println!("  6 = Z- face (back)");
+    println!("\nControls:");
+    println!("  Number keys 1-6: Jump to face view");
+    println!("    1 = X+ face (right side)");
+    println!("    2 = X- face (left side)");
+    println!("    3 = Y+ face (top)");
+    println!("    4 = Y- face (bottom)");
+    println!("    5 = Z+ face (front) - INITIAL VIEW");
+    println!("    6 = Z- face (back)");
+    println!("\n  Fly camera: WASD + QE + Mouse");
     println!("\nExpected: 'F' should be upright on ALL faces\n");
 
     let texture = create_f_texture();
@@ -66,6 +75,10 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.5, 0.5, 3.5).looking_at(cube_center, Vec3::Y),
+        FlyCameraController {
+            move_speed: 2.0,
+            ..default()
+        },
         DebugCamera,
     ));
 
@@ -178,18 +191,20 @@ fn camera_control(
             println!("    Expected: F upright");
         } else if keyboard.just_pressed(KeyCode::Digit3) {
             // Y+ face (top) - camera looks from +Y down toward cube center
+            // Up vector points north (-Z) so text is readable from north
             *transform = Transform::from_xyz(0.5, distance + 0.5, 0.5)
-                .looking_at(cube_center, Vec3::Z);
+                .looking_at(cube_center, Vec3::NEG_Z);
             println!("\n[3] Viewing Y+ face (top)");
-            println!("    Camera: (0.5, {}, 0.5) looking at cube center, up=Z", distance + 0.5);
-            println!("    Expected: F upright");
+            println!("    Camera: (0.5, {}, 0.5) looking at cube center, up=-Z (north)", distance + 0.5);
+            println!("    Expected: F upright when viewed from north");
         } else if keyboard.just_pressed(KeyCode::Digit4) {
             // Y- face (bottom) - camera looks from -Y up toward cube center
+            // Up vector points north (+Z from below) so text is readable from north
             *transform = Transform::from_xyz(0.5, -distance + 0.5, 0.5)
-                .looking_at(cube_center, Vec3::NEG_Z);
+                .looking_at(cube_center, Vec3::Z);
             println!("\n[4] Viewing Y- face (bottom)");
-            println!("    Camera: (0.5, {}, 0.5) looking at cube center, up=-Z", -distance + 0.5);
-            println!("    Expected: F upright");
+            println!("    Camera: (0.5, {}, 0.5) looking at cube center, up=+Z (north from below)", -distance + 0.5);
+            println!("    Expected: F upright when viewed from north");
         } else if keyboard.just_pressed(KeyCode::Digit5) {
             // Z+ face (front) - camera looks from +Z toward cube center
             *transform = Transform::from_xyz(0.5, 0.5, distance + 0.5)

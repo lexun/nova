@@ -356,12 +356,13 @@ fn correct_uv_orientation(
              [orig_v[0], orig_v[3], orig_v[2], orig_v[1]])
         }
         (1, false) => {
-            // Y+ (top face): flip horizontally
-            ([orig_u[1], orig_u[0], orig_u[3], orig_u[2]], orig_v)
+            // Y+ (top face): flip vertically to be readable from north (initial camera view)
+            // Vertical flip: [0,1,2,3] → [3,2,1,0]
+            (orig_u, [orig_v[3], orig_v[2], orig_v[1], orig_v[0]])
         }
         (1, true) => {
-            // Y- (bottom face): flip both
-            ([orig_u[1], orig_u[0], orig_u[3], orig_u[2]], [orig_v[3], orig_v[2], orig_v[1], orig_v[0]])
+            // Y- (bottom face): no transformation needed - already correct from north perspective
+            (orig_u, orig_v)
         }
         (2, false) => {
             // Z+ (front face): no change (reference)

@@ -24,7 +24,9 @@
 //! Run with: cargo run -p voxel --example texture_test
 
 use bevy::prelude::*;
-use bevy::image::ImageSampler;
+use bevy::asset::RenderAssetUsages;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+use bevy::image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
 use bevy_brp_extras::BrpExtrasPlugin;
 use engine::{FlyCameraController, FlyCameraPlugin};
 use voxel::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
@@ -43,12 +45,12 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    // Generate texture atlas (same as used in plugin)
-    let atlas_image = voxel::atlas::generate_atlas();
-    let atlas_texture = images.add(atlas_image);
+    // Use F texture for clear directional testing
+    let f_texture = create_f_texture();
+    let texture_handle = images.add(f_texture);
 
     let material = materials.add(StandardMaterial {
-        base_color_texture: Some(atlas_texture),
+        base_color_texture: Some(texture_handle),
         unlit: true,
         ..default()
     });
@@ -160,22 +162,62 @@ fn spawn_test_shape(
 }
 
 
-#[allow(dead_code)]
-fn fill_solid_region(data: &mut [u8], material_index: u32, color: [u8; 4]) {
-    const ATLAS_WIDTH: u32 = 256;
-    const ATLAS_HEIGHT: u32 = 64;
-    const MATERIAL_WIDTH: u32 = 64;
+fn create_f_texture() -> Image {
+    let size = 64u32;
+    let mut data = vec![0u8; (size * size * 4) as usize];
 
-    let start_x = material_index * MATERIAL_WIDTH;
-    let end_x = start_x + MATERIAL_WIDTH;
+    // Fill with dark blue background
+    for i in 0..(size * size) {
+        let idx = (i * 4) as usize;
+        data[idx] = 20;      // R
+        data[idx + 1] = 30;  // G
+        data[idx + 2] = 60;  // B
+        data[idx + 3] = 255; // A
+    }
 
-    for y in 0..ATLAS_HEIGHT {
-        for x in start_x..end_x {
-            let pixel_index = ((y * ATLAS_WIDTH + x) * 4) as usize;
-            data[pixel_index] = color[0];
-            data[pixel_index + 1] = color[1];
-            data[pixel_index + 2] = color[2];
-            data[pixel_index + 3] = color[3];
+    // Draw letter "F" in white
+    let f_pattern = [
+        [1,1,1,1,1,1,1,0],
+        [1,1,0,0,0,0,0,0],
+        [1,1,0,0,0,0,0,0],
+        [1,1,1,1,1,0,0,0],
+        [1,1,0,0,0,0,0,0],
+        [1,1,0,0,0,0,0,0],
+        [1,1,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+    ];
+
+    let cell_size = 8u32;
+    for grid_y in 0..8 {
+        for grid_x in 0..8 {
+            if f_pattern[grid_y][grid_x] == 1 {
+                for py in 0..cell_size {
+                    for px in 0..cell_size {
+                        let img_x = grid_x as u32 * cell_size + px;
+                        let img_y = grid_y as u32 * cell_size + py;
+                        let idx = ((img_y * size + img_x) * 4) as usize;
+                        data[idx] = 255;     // R
+                        data[idx + 1] = 255; // G
+                        data[idx + 2] = 255; // B
+                    }
+                }
+            }
         }
     }
+
+    let mut image = Image::new(
+        Extent3d { width: size, height: size, depth_or_array_layers: 1 },
+        TextureDimension::D2,
+        data,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+
+    image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+        address_mode_u: ImageAddressMode::Repeat,
+        address_mode_v: ImageAddressMode::Repeat,
+        ..default()
+    });
+
+    image
 }
