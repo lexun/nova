@@ -34,13 +34,13 @@ pub fn generate_atlas() -> Image {
         RenderAssetUsages::RENDER_WORLD,
     );
 
-    // Use Clamp mode - UVs are manually confined to atlas regions
-    // Repeat mode would cause UVs > 1.0 to wrap to wrong materials
+    // Use Repeat mode to enable texture tiling
+    // WARNING: UVs must stay within atlas regions or will wrap to wrong materials!
     use bevy::image::{ImageSamplerDescriptor, ImageAddressMode, ImageSampler};
     image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-        address_mode_u: ImageAddressMode::ClampToEdge,
-        address_mode_v: ImageAddressMode::ClampToEdge,
-        address_mode_w: ImageAddressMode::ClampToEdge,
+        address_mode_u: ImageAddressMode::Repeat,
+        address_mode_v: ImageAddressMode::Repeat,
+        address_mode_w: ImageAddressMode::Repeat,
         ..default()
     });
 

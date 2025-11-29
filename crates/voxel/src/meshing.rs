@@ -250,7 +250,8 @@ fn add_quad(
     let atlas_u_start = get_atlas_u_start(_voxel_type);
 
     // Calculate UVs based on quad size (in voxel units)
-    // Each quad tiles the texture based on how many voxels it spans
+    // Each voxel face should show one complete texture tile
+    // Greedy-meshed quads show multiple tiles (e.g., 4×1 voxels = 4×1 texture tiles)
     let u_voxels = u_size / _voxel_size;  // How many voxels wide
     let v_voxels = v_size / _voxel_size;  // How many voxels tall
 
@@ -267,11 +268,10 @@ fn add_quad(
         let u_uv = corner_uvs[i][0];
         let v_uv = corner_uvs[i][1];
 
-        // Map to atlas region (each material occupies 0.25 of atlas width)
-        let u_tiled = u_uv * ATLAS_REGION_WIDTH + atlas_u_start;
-        let v_tiled = v_uv;
-
-        uvs.push([u_tiled, v_tiled]);
+        // Direct UV mapping - GPU Repeat mode handles tiling
+        // TODO: For atlas support, scale U by ATLAS_REGION_WIDTH and add atlas_u_start
+        // TODO: Fix UV orientation inconsistency between faces (some are mirrored)
+        uvs.push([u_uv, v_uv]);
     }
 
     // Add indices (two triangles)

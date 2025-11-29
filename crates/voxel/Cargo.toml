@@ -11,3 +11,4 @@ bevy = { version = "0.17.2", features = ["bevy_render"] }
 bevy_brp_extras = "0.17.0"
 engine = { path = "../engine" }
 noise = "0.9"
+image = "0.25"
