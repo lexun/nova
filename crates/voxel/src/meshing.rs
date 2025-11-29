@@ -245,10 +245,6 @@ fn add_quad(
     }
 
     // Add UVs - texture tiles based on quad size in voxel units
-    // Each material occupies 0.25 of atlas width (4 materials total)
-    const ATLAS_REGION_WIDTH: f32 = 0.25;
-    let atlas_u_start = get_atlas_u_start(_voxel_type);
-
     // Calculate UVs based on quad size (in voxel units)
     // Each voxel face should show one complete texture tile
     // Greedy-meshed quads show multiple tiles (e.g., 4×1 voxels = 4×1 texture tiles)
@@ -257,21 +253,23 @@ fn add_quad(
 
     // UV coordinates for the 4 corners
     // We want the texture to tile once per voxel
+    // NOTE: V is flipped because image row 0 is at top, but UV V=0 is at bottom
     let corner_uvs = [
-        [0.0, 0.0],           // Bottom-left
-        [u_voxels, 0.0],      // Bottom-right
-        [u_voxels, v_voxels], // Top-right
-        [0.0, v_voxels],      // Top-left
+        [0.0, v_voxels],      // Bottom-left (V flipped)
+        [u_voxels, v_voxels], // Bottom-right (V flipped)
+        [u_voxels, 0.0],      // Top-right (V flipped)
+        [0.0, 0.0],           // Top-left (V flipped)
     ];
 
-    for (i, _corner) in corners.iter().enumerate() {
-        let u_uv = corner_uvs[i][0];
-        let v_uv = corner_uvs[i][1];
+    // Apply UV orientation correction to ensure all faces have consistent texture direction
+    // Without this, some faces show mirrored textures due to different axis mappings
+    let (u_corrected, v_corrected) = correct_uv_orientation(axis, back_face, &corner_uvs);
 
+
+    for i in 0..4 {
         // Direct UV mapping - GPU Repeat mode handles tiling
-        // TODO: For atlas support, scale U by ATLAS_REGION_WIDTH and add atlas_u_start
-        // TODO: Fix UV orientation inconsistency between faces (some are mirrored)
-        uvs.push([u_uv, v_uv]);
+        // TODO: For atlas support, scale U by ATLAS_REGION_WIDTH and add atlas_u_start offset
+        uvs.push([u_corrected[i], v_corrected[i]]);
     }
 
     // Add indices (two triangles)
@@ -302,6 +300,8 @@ fn add_quad(
 
 /// Get the starting U coordinate for a voxel type's region in the texture atlas
 /// Atlas layout: [Air | Grass | Dirt | Stone] each 0.25 wide
+/// TODO: Re-enable when adding atlas support
+#[allow(dead_code)]
 fn get_atlas_u_start(voxel_type: VoxelType) -> f32 {
     match voxel_type {
         VoxelType::Air => 0.0,
@@ -309,5 +309,63 @@ fn get_atlas_u_start(voxel_type: VoxelType) -> f32 {
         VoxelType::Dirt => 0.5,
         VoxelType::Stone => 0.75,
     }
+}
+
+/// Correct UV orientation to ensure consistent texture direction across all faces
+///
+/// Without correction, faces on different axes show mirrored/rotated textures
+/// because they use different 3D axis mappings (X→Y, Y→Z, Z→X, etc.)
+///
+/// This function ensures all faces show textures in a consistent orientation:
+/// - U always increases left-to-right when viewing the face head-on
+/// - V always increases bottom-to-top
+fn correct_uv_orientation(
+    axis: usize,
+    back_face: bool,
+    corner_uvs: &[[f32; 2]; 4],
+) -> ([f32; 4], [f32; 4]) {
+    // Corner order: [0]=bottom-left, [1]=bottom-right, [2]=top-right, [3]=top-left
+
+    // Start with original UVs
+    let orig_u = [corner_uvs[0][0], corner_uvs[1][0], corner_uvs[2][0], corner_uvs[3][0]];
+    let orig_v = [corner_uvs[0][1], corner_uvs[1][1], corner_uvs[2][1], corner_uvs[3][1]];
+
+    // Apply transformations based on face to ensure consistent orientation
+    // Horizontal flip: swap indices [0,1,2,3] → [1,0,3,2]
+    // Vertical flip: swap indices [0,1,2,3] → [3,2,1,0]
+
+    let (u, v) = match (axis, back_face) {
+        (0, false) => {
+            // X+ (right face): rotate 90° CCW
+            // 90° CCW: [0,1,2,3] → [1,2,3,0]
+            ([orig_u[1], orig_u[2], orig_u[3], orig_u[0]],
+             [orig_v[1], orig_v[2], orig_v[3], orig_v[0]])
+        }
+        (0, true) => {
+            // X- (left face): rotate 90° CW, then flip vertically
+            // 90° CW: [0,1,2,3] → [3,0,1,2], then V-flip: swap top-bottom
+            ([orig_u[3], orig_u[0], orig_u[1], orig_u[2]],
+             [orig_v[0], orig_v[3], orig_v[2], orig_v[1]])
+        }
+        (1, false) => {
+            // Y+ (top face): flip horizontally
+            ([orig_u[1], orig_u[0], orig_u[3], orig_u[2]], orig_v)
+        }
+        (1, true) => {
+            // Y- (bottom face): flip both
+            ([orig_u[1], orig_u[0], orig_u[3], orig_u[2]], [orig_v[3], orig_v[2], orig_v[1], orig_v[0]])
+        }
+        (2, false) => {
+            // Z+ (front face): no change (reference)
+            (orig_u, orig_v)
+        }
+        (2, true) => {
+            // Z- (back face): flip horizontally
+            ([orig_u[1], orig_u[0], orig_u[3], orig_u[2]], orig_v)
+        }
+        _ => (orig_u, orig_v)
+    };
+
+    (u, v)
 }
 

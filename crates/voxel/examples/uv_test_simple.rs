@@ -1,19 +1,17 @@
-//! UV Test: Verify basic tiling with 2×2 red/white texture
+//! UV Orientation Test: Directional arrow texture
 //!
-//! This test uses a simple procedurally generated 2×2 checkerboard texture
-//! (red and white squares) to verify that UV tiling works correctly.
+//! This test uses an arrow texture (→) with a green corner marker to verify
+//! that UV orientation is consistent across all cube faces.
 //!
 //! Expected results:
-//! - 1×1×1 cube: Each face shows 2×2 squares (1 texture tile per voxel face)
-//! - 2×2×2 cube: Each face shows 4×4 squares (2×2 texture tiles)
-//! - 4×1×1 bar: Top face shows 8×2 squares (4×1 texture tiles)
+//! - ALL faces should show arrow pointing RIGHT (→) when viewed head-on
+//! - Green marker should be in top-left corner of each face
+//! - 1×1×1 cube: 1 arrow per face
+//! - 2×2×2 cube: 2×2 grid of arrows per face
+//! - 4×1×1 bar: 4×1 grid of arrows on long faces
 //!
 //! Current status:
-//! - ✓ Texture tiling works correctly with Repeat mode
-//! - ✓ Greedy meshing preserves correct UV scaling
-//! - ⚠ UV orientation differs between faces (some are mirrored)
-//!   This is acceptable for symmetric textures but would be visible
-//!   with directional textures (arrows, text, etc.)
+//! - Testing UV orientation correction across different face normals
 
 use bevy::prelude::*;
 use bevy::asset::RenderAssetUsages;
@@ -106,19 +104,40 @@ fn create_debug_texture() -> Image {
     let size = 64u32;
     let mut data = vec![0u8; (size * size * 4) as usize];
 
+    // Create an arrow pointing RIGHT with distinct colors
+    // This makes UV orientation obvious
     for y in 0..size {
         for x in 0..size {
-            let cell_x = x / 32;
-            let cell_y = y / 32;
-            let is_white = (cell_x + cell_y) % 2 == 0;
-
             let idx = ((y * size + x) * 4) as usize;
-            if is_white {
-                data[idx] = 255; data[idx + 1] = 255; data[idx + 2] = 255;
-            } else {
-                data[idx] = 255; data[idx + 1] = 0; data[idx + 2] = 0;
-            }
+
+            // Default background: dark gray
+            data[idx] = 64;
+            data[idx + 1] = 64;
+            data[idx + 2] = 64;
             data[idx + 3] = 255;
+
+            // Top-left corner: GREEN marker
+            if x < 16 && y >= (size - 16) {
+                data[idx] = 0;
+                data[idx + 1] = 255;
+                data[idx + 2] = 0;
+            }
+
+            // Simple arrow pointing RIGHT (→)
+            // Horizontal line
+            if y >= 28 && y < 36 && x < 48 {
+                data[idx] = 255;
+                data[idx + 1] = 255;
+                data[idx + 2] = 255;
+            }
+
+            // Arrow head (triangle pointing right)
+            let dy = (y as i32 - 32).abs();
+            if x >= 40 && x < 56 && dy < (x as i32 - 40) {
+                data[idx] = 255;
+                data[idx + 1] = 255;
+                data[idx + 2] = 255;
+            }
         }
     }
 
