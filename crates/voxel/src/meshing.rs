@@ -248,17 +248,25 @@ fn add_quad(
     // Calculate UVs based on quad size (in voxel units)
     // Each voxel face should show one complete texture tile
     // Greedy-meshed quads show multiple tiles (e.g., 4×1 voxels = 4×1 texture tiles)
-    let u_voxels = u_size / _voxel_size;  // How many voxels wide
-    let v_voxels = v_size / _voxel_size;  // How many voxels tall
+
+    // For X-axis faces (axis==0), u_axis maps to Y (vertical) and v_axis maps to Z (horizontal)
+    // We need to swap them so UV texture space aligns correctly
+    let (texture_u_voxels, texture_v_voxels) = if axis == 0 {
+        // X faces: swap because u_axis=Y (vertical in world) but U is horizontal in texture
+        (v_size / _voxel_size, u_size / _voxel_size)
+    } else {
+        // Y and Z faces: no swap needed
+        (u_size / _voxel_size, v_size / _voxel_size)
+    };
 
     // UV coordinates for the 4 corners
     // We want the texture to tile once per voxel
     // NOTE: V is flipped because image row 0 is at top, but UV V=0 is at bottom
     let corner_uvs = [
-        [0.0, v_voxels],      // Bottom-left (V flipped)
-        [u_voxels, v_voxels], // Bottom-right (V flipped)
-        [u_voxels, 0.0],      // Top-right (V flipped)
-        [0.0, 0.0],           // Top-left (V flipped)
+        [0.0, texture_v_voxels],              // Bottom-left (V flipped)
+        [texture_u_voxels, texture_v_voxels], // Bottom-right (V flipped)
+        [texture_u_voxels, 0.0],              // Top-right (V flipped)
+        [0.0, 0.0],                           // Top-left (V flipped)
     ];
 
     // Apply UV orientation correction to ensure all faces have consistent texture direction
