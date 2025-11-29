@@ -1,39 +1,46 @@
-## Issue Tracking with bd (beads)
+## Issue Tracking with Memex
 
-**IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
+**IMPORTANT**: This project uses **Memex** for ALL issue tracking via MCP. Do NOT use markdown TODOs, task lists, or other tracking methods.
 
-### Why bd?
+### Why Memex?
 
-- Dependency-aware: Track blockers and relationships between issues
-- Git-friendly: Auto-syncs to JSONL for version control
-- Agent-optimized: JSON output, ready work detection, discovered-from links
-- Prevents duplicate tracking systems and confusion
+- **MCP-native**: Integrated directly via Model Context Protocol
+- **Dependency-aware**: Track blockers and relationships between tasks
+- **Agent-optimized**: JSON output, structured queries, ready work detection
+- **Persistent**: SQLite backend stores task history
+- **Project-scoped**: All nova tasks use `project: "nova"`
 
 ### Quick Start
 
-**Check for ready work:**
-```bash
-bd ready --json
+**List tasks:**
+```
+mcp__memex__list_tasks(project: "nova")
+mcp__memex__ready_tasks(project: "nova")  // Show unblocked work
 ```
 
-**Create new issues:**
-```bash
-bd create "Issue title" -t bug|feature|task -p 0-4 --json
-bd create "Issue title" -p 1 --deps discovered-from:bd-123 --json
+**Create tasks:**
+```
+mcp__memex__create_task(
+  title: "Fix bug in meshing",
+  project: "nova",
+  task_type: "bug",
+  priority: 1,
+  description: "Detailed description..."
+)
 ```
 
-**Claim and update:**
-```bash
-bd update bd-42 --status in_progress --json
-bd update bd-42 --priority 1 --json
+**Update tasks:**
+```
+mcp__memex__update_task(id: "abc123", status: "in_progress")
+mcp__memex__update_task(id: "abc123", priority: 0)
 ```
 
-**Complete work:**
-```bash
-bd close bd-42 --reason "Completed" --json
+**Complete tasks:**
+```
+mcp__memex__close_task(id: "abc123", reason: "Fixed in commit abc123")
 ```
 
-### Issue Types
+### Task Types
 
 - `bug` - Something broken
 - `feature` - New functionality
@@ -49,67 +56,51 @@ bd close bd-42 --reason "Completed" --json
 - `3` - Low (polish, optimization)
 - `4` - Backlog (future ideas)
 
+### Task Dependencies
+
+Track relationships between tasks:
+```
+mcp__memex__add_dependency(
+  from_task_id: "abc123",
+  to_task_id: "def456",
+  relation_type: "blocks"  // or "depends_on", "relates_to"
+)
+```
+
 ### Workflow for AI Agents
 
-1. **Check ready work**: `bd ready` shows unblocked issues
-2. **Claim your task**: `bd update <id> --status in_progress`
+1. **Check ready work**: `mcp__memex__ready_tasks(project: "nova")`
+2. **Claim your task**: `mcp__memex__update_task(id, status: "in_progress")`
 3. **Work on it**: Implement, test, document
-4. **Discover new work?** Create linked issue:
-   - `bd create "Found bug" -p 1 --deps discovered-from:<parent-id>`
-5. **Complete**: `bd close <id> --reason "Done"`
-6. **Commit together**: Always commit the `.beads/issues.jsonl` file together with the code changes so issue state stays in sync with code state
-
-### Auto-Sync
-
-bd automatically syncs with git:
-- Exports to `.beads/issues.jsonl` after changes (5s debounce)
-- Imports from JSONL when newer (e.g., after `git pull`)
-- No manual export/import needed!
-
-### MCP Server (Recommended)
-
-If using Claude or MCP-compatible clients, install the beads MCP server:
-
-```bash
-pip install beads-mcp
-```
-
-Add to MCP config (e.g., `~/.config/claude/config.json`):
-```json
-{
-  "beads": {
-    "command": "beads-mcp",
-    "args": []
-  }
-}
-```
-
-Then use `mcp__beads__*` functions instead of CLI commands.
+4. **Add updates**: `mcp__memex__add_task_update(task_id, content: "Progress note")`
+5. **Complete**: `mcp__memex__close_task(id, reason: "Completed")`
 
 ### Planning and Exploration
 
-**Use bd (beads) for ALL planning and exploration work.**
+**Use Memex for planning and exploration work, and create documentation files to capture knowledge.**
 
 When exploring designs, architectures, or solutions:
 
-1. **Create issues in bd** - Use issue notes for detailed analysis (markdown supported)
-2. **Use epics and dependencies** - Structure multi-part explorations
-3. **Close when complete** - Knowledge captured in closed issues
+1. **Create tasks in Memex** - Use task updates for progress notes
+2. **Use dependencies** - Structure multi-part explorations
+3. **Document in `docs/` folders** - Capture technical decisions and architecture
+   - Use lowercase filenames (e.g., `uv_mapping.md`, `lod_system.md`)
+   - Place in appropriate crate: `crates/voxel/docs/`, `crates/engine/docs/`
+4. **Close tasks when complete** - Reference documentation in close reason
 
-**DO NOT create planning documents** unless absolutely necessary for immediate collaboration.
+**Documentation Guidelines:**
+- ✅ Create docs for complex technical decisions
+- ✅ Use Markdown with clear structure
+- ✅ Include code examples where relevant
+- ✅ Keep docs close to the code (in crate docs/ folders)
+- ✅ Lowercase filenames with underscores
+- ❌ Do NOT create docs in project root
+- ❌ Do NOT create planning docs in `/tmp/`
 
-If a temporary document is unavoidable:
-- Use `/tmp/nova-planning/` (NOT tracked in git)
-- Delete immediately after capturing in bd
-- Never commit planning documents
-
-**Why bd-only?**
-- ✅ Prevents duplicate tracking systems
-- ✅ Git history shows what was decided AND when
-- ✅ Dependencies show decision relationships
-- ✅ Searchable via `bd list` and `bd show`
-- ✅ Never gets out of sync with code
-- ✅ Clean repository (no orphaned docs)
+**Existing Documentation:**
+- `crates/voxel/docs/uv_mapping.md` - UV mapping system
+- `crates/voxel/docs/lod_system.md` - LOD strategies and octree
+- `crates/voxel/docs/spherical_terrain.md` - Planet rendering approaches
 
 ### Git Commit Messages
 
@@ -139,18 +130,15 @@ Short, imperative commits create a clean, scannable git history. Each commit sho
 
 ### Important Rules
 
-- ✅ Use bd for ALL task tracking AND planning
-- ✅ Always use `--json` flag for programmatic use
-- ✅ Link discovered work with `discovered-from` dependencies
-- ✅ Check `bd ready` before asking "what should I work on?"
-- ✅ Use issue notes for detailed analysis/exploration
+- ✅ Use Memex (via MCP) for ALL task tracking
+- ✅ Always use `project: "nova"` parameter
+- ✅ Create docs in crate `docs/` folders for technical decisions
+- ✅ Check `ready_tasks()` before asking "what should I work on?"
+- ✅ Use task updates for progress notes
 - ✅ Follow git commit message guidelines (imperative, <50 chars)
 - ❌ Do NOT create markdown TODO lists
-- ❌ Do NOT create planning documents (use bd issues)
 - ❌ Do NOT use external issue trackers
 - ❌ Do NOT duplicate tracking systems
-
-For more details, see README.md and QUICKSTART.md.
 
 ## Visual Verification Workflow for 3D Graphics
 
