@@ -37,9 +37,9 @@ pub struct MaterialTextures {
 
 impl MaterialTextures {
     /// Get texture handle for a voxel type and face direction
-    pub fn get_texture(&self, voxel_type: crate::VoxelType, face_dir: crate::atlas::FaceDir) -> Handle<Image> {
+    pub fn get_texture(&self, voxel_type: crate::VoxelType, face_dir: crate::meshing::FaceDir) -> Handle<Image> {
         use crate::VoxelType::*;
-        use crate::atlas::FaceDir;
+        use crate::meshing::FaceDir;
         match voxel_type {
             Air => self.air.clone(),
             Stone => self.stone.clone(),

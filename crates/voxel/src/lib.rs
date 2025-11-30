@@ -26,7 +26,7 @@
 //!
 //! - [`chunk`]: Core voxel and chunk data structures ([`Chunk`], [`Voxel`], [`VoxelType`])
 //! - [`meshing`]: Greedy meshing algorithm for efficient voxel-to-mesh conversion
-//! - [`atlas`]: Texture atlas generation for voxel materials
+//! - [`textures`]: Separate texture generation for voxel materials
 //! - [`lod`]: Level of Detail system ([`lod::LodLevel`], [`lod::ChunkManager`])
 //! - [`terrain`]: Procedural terrain generation utilities ([`terrain::terrain_height`])
 //!
@@ -91,7 +91,6 @@ use bevy::prelude::*;
 
 // Core modules
 pub mod chunk;
-pub mod atlas;
 pub mod textures;
 pub mod meshing;
 
@@ -102,6 +101,7 @@ pub mod plugin;
 
 // Re-export core types for backwards compatibility
 pub use chunk::{Chunk, Voxel, VoxelType, CHUNK_SIZE};
+pub use meshing::FaceDir;
 
 // Re-export high-level API
 pub use plugin::{VoxelTerrain, VoxelTerrainPlugin};

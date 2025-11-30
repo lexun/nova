@@ -2,12 +2,19 @@
 //!
 //! Implements greedy meshing algorithm to convert voxel chunks into optimized triangle meshes.
 
-use crate::atlas::FaceDir;
 use crate::{Chunk, VoxelType, CHUNK_SIZE};
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use std::collections::HashMap;
+
+/// Face direction for texture selection
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FaceDir {
+    Top,    // Y+
+    Bottom, // Y-
+    Side,   // X+, X-, Z+, Z-
+}
 
 /// Get color for a voxel type (RGBA in linear color space)
 fn voxel_color(voxel_type: VoxelType) -> [f32; 4] {

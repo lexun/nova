@@ -37,7 +37,7 @@ fn setup(
 
     // Generate separate material textures
     use std::collections::HashMap;
-    use voxel::atlas::FaceDir;
+    use voxel::FaceDir;
     use voxel::meshing::MaterialKey;
 
     let material_textures = voxel::textures::generate_material_textures(&mut images);

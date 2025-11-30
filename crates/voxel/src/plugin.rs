@@ -159,8 +159,7 @@ fn setup_texture_atlas(
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    use crate::atlas::FaceDir;
-    use crate::meshing::MaterialKey;
+    use crate::meshing::{FaceDir, MaterialKey};
     use crate::VoxelType;
 
     info!("Generating voxel material textures...");
