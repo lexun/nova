@@ -1,5 +1,8 @@
 //! Octree terrain example demonstrating 3D LOD with cubic terrain
 //!
+//! **STATUS: BROKEN** - Too poorly optimized to run at scale. When debugging,
+//! start by generating less terrain to isolate issues.
+//!
 //! This example shows the new octree-based LOD system:
 //! - Uses `VoxelTerrain::cubic(world_size)` for 3D octree LOD
 //! - Supports unlimited height and 3D features (future: caves, tunnels)
@@ -13,7 +16,7 @@
 //! - Shift: Hold for faster movement
 //! - Mouse: Look around (when captured)
 //!
-//! Run with: cargo run -p voxel --example octree_terrain
+//! Run with: cargo run -p voxel --example demo_octree
 
 use bevy::prelude::*;
 use engine::{FlyCameraController, FlyCameraPlugin};

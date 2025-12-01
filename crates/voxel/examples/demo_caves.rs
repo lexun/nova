@@ -1,5 +1,7 @@
 //! Cave terrain example demonstrating 3D features with cave carving
 //!
+//! **STATUS: BROKEN** - Needs debugging before use.
+//!
 //! This example shows the new 3D terrain generation system:
 //! - Uses `CaveTerrainGenerator` with density-based voxel generation
 //! - Demonstrates caves, tunnels, and overhangs
@@ -13,7 +15,7 @@
 //! - Shift: Hold for faster movement
 //! - Mouse: Look around (when captured)
 //!
-//! Run with: cargo run -p voxel --example caves
+//! Run with: cargo run -p voxel --example demo_caves
 
 use bevy::prelude::*;
 use engine::{FlyCameraController, FlyCameraPlugin};

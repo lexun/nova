@@ -52,26 +52,28 @@
 //!
 //! ## Examples
 //!
-//! The crate includes several examples demonstrating different aspects of the voxel system:
+//! Examples are organized by category:
 //!
+//! ### Demos (feature showcases)
 //! ```bash
-//! # Simple high-level API (recommended starting point)
-//! cargo run -p voxel --example simple_terrain
+//! cargo run -p voxel --example demo_simple_terrain      # High-level API (start here)
+//! cargo run -p voxel --example demo_large_terrain       # Production LOD (2048m world)
+//! cargo run -p voxel --example demo_grass_terrain       # Minecraft-style grass
+//! cargo run -p voxel --example demo_caves               # Cave generation (BROKEN)
+//! cargo run -p voxel --example demo_octree              # 3D octree LOD (BROKEN)
+//! ```
 //!
-//! # Large-scale terrain with production LOD settings
-//! cargo run -p voxel --example large_scale_terrain --release
-//!
-//! # Multi-chunk terrain with chunk boundaries
-//! cargo run -p voxel --example multi_chunk_terrain
-//!
-//! # Side-by-side LOD comparison (1, 4, and 16 chunks)
-//! cargo run -p voxel --example lod_comparison
-//!
-//! # Manual LOD transitions (low-level control)
-//! cargo run -p voxel --example dynamic_lod
-//!
-//! # Greedy meshing validation with 8 test patterns
-//! cargo run -p voxel --example meshing_validation
+//! ### Debug tools (visual debugging)
+//! ```bash
+//! cargo run -p voxel --example debug_lod_comparison     # Side-by-side LOD levels
+//! cargo run -p voxel --example debug_meshing_patterns   # Greedy meshing test patterns
+//! cargo run -p voxel --example debug_texture_tiling     # UV tiling on various shapes
+//! cargo run -p voxel --example debug_uv_single          # Single voxel UV orientation
+//! cargo run -p voxel --example debug_uv_horizontal      # 2x1 horizontal UV tiling
+//! cargo run -p voxel --example debug_uv_vertical        # 1x2 vertical UV tiling
+//! cargo run -p voxel --example debug_grass_single       # Single grass voxel faces
+//! cargo run -p voxel --example debug_grass_stack        # Dirt+Grass vertical stack
+//! cargo run -p voxel --example debug_grass_horizontal   # 2x1 horizontal grass
 //! ```
 //!
 //! ## Level of Detail (LOD)
