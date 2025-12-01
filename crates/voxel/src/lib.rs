@@ -67,7 +67,7 @@
 //! ```bash
 //! cargo run -p voxel --example debug_lod_comparison     # Side-by-side LOD levels
 //! cargo run -p voxel --example debug_meshing_patterns   # Greedy meshing test patterns
-//! cargo run -p voxel --example debug_texture_tiling     # UV tiling on various shapes
+//! cargo run -p voxel --example debug_uv_complex         # UV tiling on various shapes
 //! cargo run -p voxel --example debug_uv_single          # Single voxel UV orientation
 //! cargo run -p voxel --example debug_uv_horizontal      # 2x1 horizontal UV tiling
 //! cargo run -p voxel --example debug_uv_vertical        # 1x2 vertical UV tiling
