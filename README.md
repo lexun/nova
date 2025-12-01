@@ -3,9 +3,14 @@
 A modular game engine for building galaxy-scale, voxel-based worlds with
 seamless space-to-surface transitions and multiplayer support.
 
+> **Note**: This is an experimental project by a solo developer, primarily for
+> learning and exploring game engine architecture. The vision below is an
+> aspirational set of targets meant to serve as a north star guiding the
+> experimentation—not a roadmap with any expectation of "completion."
+
 ## Vision
 
-This project aims to create a comprehensive game engine that combines:
+This project explores ideas for a game engine that could combine:
 
 - **Voxel system** inspired by Enshrouded's terrain manipulation
 - **Procedural generation** for galaxy-scale worlds and systems like No Man's Sky
