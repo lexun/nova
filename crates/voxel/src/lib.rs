@@ -56,7 +56,6 @@
 //!
 //! ### Demos (feature showcases)
 //! ```bash
-//! cargo run -p voxel --example demo_simple_terrain      # High-level API (start here)
 //! cargo run -p voxel --example demo_large_terrain       # Production LOD (2048m world)
 //! cargo run -p voxel --example demo_grass_terrain       # Minecraft-style grass
 //! cargo run -p voxel --example demo_caves               # Cave generation (BROKEN)
