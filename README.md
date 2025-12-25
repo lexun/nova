@@ -1,16 +1,17 @@
-# Nova Engine
+# Nova
 
-A modular game engine for building galaxy-scale, voxel-based worlds with
-seamless space-to-surface transitions and multiplayer support.
+An aspirational collection of [Bevy](https://bevyengine.org/) plugins for building
+galaxy-scale, voxel-based worlds with seamless space-to-surface transitions and
+multiplayer support.
 
 > **Note**: This is an experimental project by a solo developer, primarily for
-> learning and exploring game engine architecture. The vision below is an
-> aspirational set of targets meant to serve as a north star guiding the
-> experimentation—not a roadmap with any expectation of "completion."
+> learning and exploring various aspects of game development. The vision below presents
+> a set of targets meant to serve as a north star guiding the exploration.
+> It is not a roadmap with any expectation of "completion."
 
 ## Vision
 
-This project explores ideas for a game engine that could combine:
+This project aims to touch on various ideas for a framework that could combine:
 
 - **Voxel system** inspired by Enshrouded's terrain manipulation
 - **Procedural generation** for galaxy-scale worlds and systems like No Man's Sky
@@ -19,23 +20,25 @@ This project explores ideas for a game engine that could combine:
 
 ## Architecture
 
-The project is organized as a Rust workspace with modular, reusable components:
+The project is organized as a Rust workspace with crates for each major component:
 
 ```
 nova/
-└── crates/                      # All engine components and examples
-    ├── voxel/                   # Voxel system with LOD and terrain generation
-    └── engine/                  # Integration layer (Bevy app setup, camera, etc.)
+└── crates/                      # All components and examples
+    ├── engine/                  # Integration layer (Bevy app setup, camera, etc.)
+    └── voxel/                   # Voxel system with LOD and terrain generation
 ```
+
+More crates will be added as the project progresses.
 
 ### Voxel System
 
 The voxel crate provides:
-- **5-level LOD system** with dynamic terrain resolution (0.25m to 4m voxels)
+
+- **LOD system** with dynamic terrain resolution
 - **Greedy meshing** for efficient chunk rendering
 - **World-space terrain generation** ensuring consistency across LOD levels
 - **Region-based chunk management** for streaming large worlds
-- **Texture atlas system** for material rendering
 
 See `crates/voxel/README.md` for detailed documentation.
 
@@ -116,9 +119,3 @@ cargo run -p engine --example basic
 # Planet with spherical chunk distribution (experimental)
 cargo run -p engine --example planet_chunk_sphere
 ```
-
-## Development
-
-This is an experimental project exploring cutting-edge game development
-techniques for galaxy-scale voxel worlds. Each engine component can be developed
-and tested independently.
